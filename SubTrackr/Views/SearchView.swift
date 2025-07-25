@@ -329,11 +329,20 @@ struct SearchResultRow: View {
                 
                 Spacer()
                 
-                VStack(alignment: .trailing) {
-                    Text("$\(subscription.cost, specifier: "%.2f")")
+                VStack(alignment: .trailing, spacing: 2) {
+                    let currencyManager = CurrencyManager.shared
+                    let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+                    
+                    Text(currencyManager.formatAmount(convertedCost))
                         .font(.headline)
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
+                    
+                    if subscription.currency.code != currencyManager.selectedCurrency.code {
+                        Text(subscription.formattedCost)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                     
                     Text(subscription.billingCycle.rawValue)
                         .font(.caption)
