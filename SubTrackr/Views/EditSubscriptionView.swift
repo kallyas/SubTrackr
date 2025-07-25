@@ -5,9 +5,11 @@ struct EditSubscriptionView: View {
     let onSave: (Subscription) -> Void
     
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var currencyManager = CurrencyManager.shared
     
     @State private var name = ""
     @State private var cost = ""
+    @State private var selectedCurrency = Currency.USD
     @State private var billingCycle = BillingCycle.monthly
     @State private var startDate = Date()
     @State private var category = SubscriptionCategory.streaming
@@ -72,10 +74,17 @@ struct EditSubscriptionView: View {
                 .textInputAutocapitalization(.words)
             
             HStack {
-                Text("$")
+                Text(selectedCurrency.symbol)
                     .foregroundColor(.secondary)
                 TextField("0.00", text: $cost)
                     .keyboardType(.decimalPad)
+                
+                Picker("Currency", selection: $selectedCurrency) {
+                    ForEach(Currency.supportedCurrencies) { currency in
+                        Text(currency.code).tag(currency)
+                    }
+                }
+                .pickerStyle(.menu)
             }
         }
     }
@@ -142,10 +151,15 @@ struct EditSubscriptionView: View {
     }
     
     private func loadSubscriptionData() {
-        guard let subscription = subscription else { return }
+        guard let subscription = subscription else { 
+            // For new subscriptions, use user's current currency
+            selectedCurrency = currencyManager.selectedCurrency
+            return 
+        }
         
         name = subscription.name
         cost = String(subscription.cost)
+        selectedCurrency = subscription.currency
         billingCycle = subscription.billingCycle
         startDate = subscription.startDate
         category = subscription.category
@@ -160,6 +174,7 @@ struct EditSubscriptionView: View {
             id: subscription?.id ?? UUID().uuidString,
             name: name,
             cost: costValue,
+            currency: selectedCurrency,
             billingCycle: billingCycle,
             startDate: startDate,
             category: category,
