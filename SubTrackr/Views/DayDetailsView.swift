@@ -6,6 +6,7 @@ struct DayDetailsView: View {
     
     @Environment(\.dismiss) private var dismiss
     @StateObject private var subscriptionViewModel = SubscriptionViewModel()
+    @StateObject private var currencyManager = CurrencyManager.shared
     @State private var showingDeleteAlert = false
     @State private var subscriptionToDelete: Subscription?
     
@@ -16,7 +17,10 @@ struct DayDetailsView: View {
     }
     
     private var totalCost: Double {
-        subscriptions.reduce(0) { $0 + $1.cost }
+        return subscriptions.reduce(0) { total, subscription in
+            let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+            return total + convertedCost
+        }
     }
     
     var body: some View {
@@ -86,7 +90,7 @@ struct DayDetailsView: View {
                     .fontWeight(.medium)
                 
                 if !subscriptions.isEmpty {
-                    Text("Total: $\(totalCost, specifier: "%.2f")")
+                    Text("Total: \(currencyManager.formatAmount(totalCost))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Color.accentColor)
@@ -143,6 +147,7 @@ struct SubscriptionRowView: View {
     let onEdit: (Subscription) -> Void
     let onDelete: (Subscription) -> Void
     
+    @StateObject private var currencyManager = CurrencyManager.shared
     @State private var showingEditSheet = false
     
     var body: some View {
@@ -199,10 +204,18 @@ struct SubscriptionRowView: View {
     
     private var costInfo: some View {
         VStack(alignment: .trailing, spacing: 2) {
-            Text("$\(subscription.cost, specifier: "%.2f")")
+            let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+            
+            Text(currencyManager.formatAmount(convertedCost))
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(.primary)
+            
+            if subscription.currency.code != currencyManager.selectedCurrency.code {
+                Text(subscription.formattedCost)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
             
             Text(subscription.billingCycle.rawValue)
                 .font(.caption)
@@ -238,7 +251,7 @@ struct SubscriptionRowView: View {
         Subscription(
             name: "Netflix",
             cost: 13.99,
-            billingCycle: .monthly,
+            currency: .USD, billingCycle: .monthly,
             startDate: Date(),
             category: .streaming,
             iconName: "tv.fill"
@@ -246,7 +259,7 @@ struct SubscriptionRowView: View {
         Subscription(
             name: "Spotify",
             cost: 9.99,
-            billingCycle: .monthly,
+            currency: .USD, billingCycle: .monthly,
             startDate: Date(),
             category: .music,
             iconName: "music.note"
