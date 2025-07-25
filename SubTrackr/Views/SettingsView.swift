@@ -2,8 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @StateObject private var permissionsManager = PermissionsManager.shared
+    @StateObject private var currencyManager = CurrencyManager.shared
     @State private var showingPermissions = false
     @State private var showingAbout = false
+    @State private var showingCurrencyPicker = false
     
     var body: some View {
         NavigationView {
@@ -32,6 +34,19 @@ struct SettingsView: View {
                 
                 Section {
                     SettingsRow(
+                        icon: "dollarsign.circle.fill",
+                        title: "Currency",
+                        subtitle: "\(currencyManager.selectedCurrency.name) (\(currencyManager.selectedCurrency.symbol))",
+                        color: .green
+                    ) {
+                        showingCurrencyPicker = true
+                    }
+                } header: {
+                    Text("Preferences")
+                }
+                
+                Section {
+                    SettingsRow(
                         icon: "icloud.fill",
                         title: "iCloud Sync",
                         subtitle: permissionsManager.iCloudStatusText,
@@ -45,11 +60,12 @@ struct SettingsView: View {
                     SettingsRow(
                         icon: "arrow.triangle.2.circlepath",
                         title: "Refresh Data",
-                        subtitle: "Sync with iCloud",
+                        subtitle: "Sync with iCloud & Exchange Rates",
                         color: .green
                     ) {
                         HapticManager.shared.lightImpact()
                         CloudKitService.shared.fetchSubscriptions()
+                        currencyManager.refreshExchangeRates()
                     }
                 } header: {
                     Text("Data & Sync")
@@ -97,6 +113,9 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingAbout) {
             AboutView()
+        }
+        .sheet(isPresented: $showingCurrencyPicker) {
+            CurrencyPickerView()
         }
     }
 }
