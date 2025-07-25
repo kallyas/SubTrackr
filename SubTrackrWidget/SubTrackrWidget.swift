@@ -1,76 +1,50 @@
 import WidgetKit
 import SwiftUI
-import CloudKit
 
 struct Provider: TimelineProvider {
+    private let dataManager = WidgetDataManager.shared
+    
     func placeholder(in context: Context) -> SimpleEntry {
         SimpleEntry(date: Date(), monthlyTotal: 127.50, upcomingRenewals: 3, activeSubscriptions: 8)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        if context.isPreview {
-            let entry = SimpleEntry(date: Date(), monthlyTotal: 1247.89, upcomingRenewals: 3, activeSubscriptions: 12)
-            completion(entry)
-        } else {
-            fetchSubscriptionData { monthlyTotal, upcomingRenewals, activeCount in
-                let entry = SimpleEntry(
-                    date: Date(),
-                    monthlyTotal: monthlyTotal,
-                    upcomingRenewals: upcomingRenewals,
-                    activeSubscriptions: activeCount
-                )
-                completion(entry)
-            }
-        }
+        let subscriptions = dataManager.getSampleSubscriptions()
+        let monthlyTotal = dataManager.calculateMonthlyTotal(subscriptions: subscriptions)
+        let upcomingRenewals = dataManager.getUpcomingRenewals(subscriptions: subscriptions)
+        
+        let entry = SimpleEntry(
+            date: Date(),
+            monthlyTotal: monthlyTotal,
+            upcomingRenewals: upcomingRenewals,
+            activeSubscriptions: subscriptions.count
+        )
+        completion(entry)
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        fetchSubscriptionData { monthlyTotal, upcomingRenewals, activeCount in
-            var entries: [SimpleEntry] = []
-            let currentDate = Date()
-            
-            // Create entries for the next 4 hours
-            for hourOffset in 0 ..< 4 {
-                let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-                let entry = SimpleEntry(
-                    date: entryDate,
-                    monthlyTotal: monthlyTotal,
-                    upcomingRenewals: upcomingRenewals,
-                    activeSubscriptions: activeCount
-                )
-                entries.append(entry)
-            }
+        let subscriptions = dataManager.getSampleSubscriptions()
+        let monthlyTotal = dataManager.calculateMonthlyTotal(subscriptions: subscriptions)
+        let upcomingRenewals = dataManager.getUpcomingRenewals(subscriptions: subscriptions)
+        
+        var entries: [SimpleEntry] = []
+        let currentDate = Date()
+        
+        // Create entries for the next 4 hours
+        for hourOffset in 0 ..< 4 {
+            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+            let entry = SimpleEntry(
+                date: entryDate,
+                monthlyTotal: monthlyTotal,
+                upcomingRenewals: upcomingRenewals,
+                activeSubscriptions: subscriptions.count
+            )
+            entries.append(entry)
+        }
 
-            // Update timeline every 4 hours
-            let timeline = Timeline(entries: entries, policy: .atEnd)
-            completion(timeline)
-        }
-    }
-    
-    private func fetchSubscriptionData(completion: @escaping (Double, Int, Int) -> Void) {
-        let cloudKitService = CloudKitService.shared
-        
-        // Use existing subscriptions or fallback to sample data
-        let subscriptions = cloudKitService.subscriptions.isEmpty ? SampleData.subscriptions : cloudKitService.subscriptions
-        let activeSubscriptions = subscriptions.filter { $0.isActive }
-        
-        // Calculate monthly total
-        let monthlyTotal = activeSubscriptions.reduce(0) { total, subscription in
-            let convertedCost = CurrencyManager.shared.convertToUserCurrency(subscription.cost, from: subscription.currency)
-            return total + (convertedCost * subscription.billingCycle.monthlyEquivalent)
-        }
-        
-        // Calculate upcoming renewals (next 7 days)
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let nextWeek = calendar.date(byAdding: .day, value: 7, to: today)!
-        
-        let upcomingRenewals = activeSubscriptions.filter { subscription in
-            let nextBilling = subscription.nextBillingDate
-            return nextBilling >= today && nextBilling < nextWeek
-        }.count
-        
-        completion(monthlyTotal, upcomingRenewals, activeSubscriptions.count)
+        // Update timeline every 4 hours
+        let timeline = Timeline(entries: entries, policy: .atEnd)
+        completion(timeline)
     }
 }
 
@@ -81,15 +55,8 @@ struct SimpleEntry: TimelineEntry {
     let activeSubscriptions: Int
     
     var formattedMonthlyTotal: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = CurrencyManager.shared.selectedCurrency.code
-        formatter.currencySymbol = CurrencyManager.shared.selectedCurrency.symbol
-        formatter.usesGroupingSeparator = true
-        formatter.groupingSize = 3
-        formatter.maximumFractionDigits = 2
-        formatter.minimumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: monthlyTotal)) ?? CurrencyManager.shared.selectedCurrency.formatAmount(monthlyTotal)
+        let currency = WidgetDataManager.shared.selectedCurrency
+        return currency.formatAmount(monthlyTotal)
     }
 }
 
