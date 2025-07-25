@@ -1,0 +1,95 @@
+# SwiftLint Configuration for SubTrackr
+
+# Included paths
+included:
+  - SubTrackr
+  - SubTrackrWidget
+  - SubTrackrTests
+  - SubTrackrUITests
+
+# Excluded paths
+excluded:
+  - Carthage
+  - Pods
+  - .build
+  - DerivedData
+
+# Disabled rules
+disabled_rules:
+  - trailing_whitespace
+
+# Opt-in rules
+opt_in_rules:
+  - empty_count
+  - force_unwrapping
+  - implicitly_unwrapped_optional
+  - overridden_super_call
+  - redundant_nil_coalescing
+  - switch_case_on_newline
+  - vertical_parameter_alignment_on_call
+
+# Rule configurations
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 500
+  error: 1000
+
+function_body_length:
+  warning: 50
+  error: 100
+
+type_body_length:
+  warning: 300
+  error: 500
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+nesting:
+  type_level:
+    warning: 3
+    error: 6
+  statement_level:
+    warning: 5
+    error: 10
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 100
+  excluded:
+    - id
+    - URL
+    - url
+
+large_tuple:
+  warning: 3
+  error: 4
+
+# Custom rules
+custom_rules:
+  no_print:
+    name: "No print statements"
+    regex: '\bprint\('
+    message: "Use logging instead of print statements"
+    severity: warning
+
+  force_unwrap_warning:
+    name: "Force Unwrap"
+    regex: '\!\s*(?=\w)'
+    message: "Avoid using force unwrap"
+    severity: warning
+
+# Analyzer rules
+analyzer_rules:
+  - unused_declaration
+  - unused_import
