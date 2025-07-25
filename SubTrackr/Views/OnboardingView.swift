@@ -4,6 +4,7 @@ struct OnboardingView: View {
     @Binding var isFirstLaunch: Bool
     @State private var currentPage = 0
     @State private var showingAddSubscription = false
+    @StateObject private var permissionsManager = PermissionsManager.shared
     
     private let pages = [
         OnboardingPage(
@@ -29,6 +30,12 @@ struct OnboardingView: View {
             title: "Sync Across Devices",
             description: "Your data syncs automatically across all your Apple devices with iCloud.",
             color: .orange
+        ),
+        OnboardingPage(
+            icon: "lock.shield.fill",
+            title: "Enable Permissions",
+            description: "Allow notifications for renewal reminders and iCloud sync for your data.",
+            color: .blue
         )
     ]
     
@@ -123,18 +130,53 @@ struct OnboardingView: View {
     
     private var getStartedButton: some View {
         VStack(spacing: 16) {
-            Button {
-                showingAddSubscription = true
-            } label: {
-                Text("Add Your First Subscription")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(pages[currentPage].color)
-                    )
+            if currentPage == pages.count - 1 {
+                // Permissions page
+                VStack(spacing: 12) {
+                    Button {
+                        Task {
+                            await permissionsManager.requestNotificationPermissions()
+                        }
+                    } label: {
+                        Text("Allow Notifications")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(pages[currentPage].color)
+                            )
+                    }
+                    
+                    Button {
+                        showingAddSubscription = true
+                    } label: {
+                        Text("Add Your First Subscription")
+                            .font(.subheadline)
+                            .foregroundColor(pages[currentPage].color)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(pages[currentPage].color, lineWidth: 1)
+                            )
+                    }
+                }
+            } else {
+                Button {
+                    showingAddSubscription = true
+                } label: {
+                    Text("Add Your First Subscription")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(pages[currentPage].color)
+                        )
+                }
             }
             
             Button("I'll Do This Later") {
