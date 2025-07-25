@@ -126,7 +126,7 @@ class PermissionsManager: ObservableObject {
         
         let content = UNMutableNotificationContent()
         content.title = "Subscription Renewal"
-        content.body = "\(subscription.name) renews today for $\(String(format: "%.2f", subscription.cost))"
+        content.body = "\(subscription.name) renews today for \(subscription.formattedCost)"
         content.sound = .default
         content.badge = 1
         
