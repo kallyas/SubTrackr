@@ -10,6 +10,7 @@ class SubscriptionViewModel: ObservableObject {
     @Published var editingSubscription: Subscription?
     
     private let cloudKitService = CloudKitService.shared
+    private let currencyManager = CurrencyManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     init() {
@@ -23,21 +24,33 @@ class SubscriptionViewModel: ObservableObject {
             }
             .assign(to: \.filteredSubscriptions, on: self)
             .store(in: &cancellables)
+        
+        // Listen for currency changes and trigger UI updates
+        currencyManager.$selectedCurrency
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
     
     var monthlyTotal: Double {
-        subscriptions.filter(\.isActive).reduce(0) { total, subscription in
-            total + (subscription.cost * subscription.billingCycle.monthlyEquivalent)
+        let currencyManager = CurrencyManager.shared
+        return subscriptions.filter(\.isActive).reduce(0) { total, subscription in
+            let monthlyCostInOriginalCurrency = subscription.cost * subscription.billingCycle.monthlyEquivalent
+            let convertedCost = currencyManager.convertToUserCurrency(monthlyCostInOriginalCurrency, from: subscription.currency)
+            return total + convertedCost
         }
     }
     
     var categoryTotals: [SubscriptionCategory: Double] {
         let activeSubscriptions = subscriptions.filter(\.isActive)
+        let currencyManager = CurrencyManager.shared
         var totals: [SubscriptionCategory: Double] = [:]
         
         for subscription in activeSubscriptions {
-            let monthlyAmount = subscription.cost * subscription.billingCycle.monthlyEquivalent
-            totals[subscription.category, default: 0] += monthlyAmount
+            let monthlyCostInOriginalCurrency = subscription.cost * subscription.billingCycle.monthlyEquivalent
+            let convertedAmount = currencyManager.convertToUserCurrency(monthlyCostInOriginalCurrency, from: subscription.currency)
+            totals[subscription.category, default: 0] += convertedAmount
         }
         
         return totals
