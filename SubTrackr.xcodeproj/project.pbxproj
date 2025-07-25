@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A1C6DEEF2E33EA4D00E81A9E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C6DEEE2E33EA4D00E81A9E /* WidgetKit.framework */; };
+		A1C6DEF12E33EA4D00E81A9E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C6DEF02E33EA4D00E81A9E /* SwiftUI.framework */; };
+		A1C6DF022E33EA4F00E81A9E /* SubTrackrWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A1466BD32E339FFA002FAA07 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +27,36 @@
 			remoteGlobalIDString = A1466BC02E339FF9002FAA07;
 			remoteInfo = SubTrackr;
 		};
+		A1C6DF002E33EA4F00E81A9E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1466BB92E339FF9002FAA07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1C6DEEB2E33EA4D00E81A9E;
+			remoteInfo = SubTrackrWidgetExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A1C6DF032E33EA4F00E81A9E /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1C6DF022E33EA4F00E81A9E /* SubTrackrWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		A1466BC12E339FF9002FAA07 /* SubTrackr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SubTrackr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1466BD22E339FFA002FAA07 /* SubTrackrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubTrackrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1466BDC2E339FFA002FAA07 /* SubTrackrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubTrackrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SubTrackrWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1C6DEEE2E33EA4D00E81A9E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		A1C6DEF02E33EA4D00E81A9E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +66,13 @@
 				Info.plist,
 			);
 			target = A1466BC02E339FF9002FAA07 /* SubTrackr */;
+		};
+		A1C6DF072E33EA4F00E81A9E /* Exceptions for "SubTrackrWidget" folder in "SubTrackrWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A1C6DEEB2E33EA4D00E81A9E /* SubTrackrWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -56,6 +93,14 @@
 		A1466BDF2E339FFA002FAA07 /* SubTrackrUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = SubTrackrUITests;
+			sourceTree = "<group>";
+		};
+		A1C6DEF22E33EA4D00E81A9E /* SubTrackrWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A1C6DF072E33EA4F00E81A9E /* Exceptions for "SubTrackrWidget" folder in "SubTrackrWidgetExtension" target */,
+			);
+			path = SubTrackrWidget;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -82,6 +127,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1C6DEE92E33EA4D00E81A9E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1C6DEF12E33EA4D00E81A9E /* SwiftUI.framework in Frameworks */,
+				A1C6DEEF2E33EA4D00E81A9E /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -91,6 +145,8 @@
 				A1466BC32E339FF9002FAA07 /* SubTrackr */,
 				A1466BD52E339FFA002FAA07 /* SubTrackrTests */,
 				A1466BDF2E339FFA002FAA07 /* SubTrackrUITests */,
+				A1C6DEF22E33EA4D00E81A9E /* SubTrackrWidget */,
+				A1C6DEED2E33EA4D00E81A9E /* Frameworks */,
 				A1466BC22E339FF9002FAA07 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,8 +157,18 @@
 				A1466BC12E339FF9002FAA07 /* SubTrackr.app */,
 				A1466BD22E339FFA002FAA07 /* SubTrackrTests.xctest */,
 				A1466BDC2E339FFA002FAA07 /* SubTrackrUITests.xctest */,
+				A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A1C6DEED2E33EA4D00E81A9E /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A1C6DEEE2E33EA4D00E81A9E /* WidgetKit.framework */,
+				A1C6DEF02E33EA4D00E81A9E /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,10 +181,12 @@
 				A1466BBD2E339FF9002FAA07 /* Sources */,
 				A1466BBE2E339FF9002FAA07 /* Frameworks */,
 				A1466BBF2E339FF9002FAA07 /* Resources */,
+				A1C6DF032E33EA4F00E81A9E /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A1C6DF012E33EA4F00E81A9E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A1466BC32E339FF9002FAA07 /* SubTrackr */,
@@ -176,6 +244,28 @@
 			productReference = A1466BDC2E339FFA002FAA07 /* SubTrackrUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		A1C6DEEB2E33EA4D00E81A9E /* SubTrackrWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1C6DF062E33EA4F00E81A9E /* Build configuration list for PBXNativeTarget "SubTrackrWidgetExtension" */;
+			buildPhases = (
+				A1C6DEE82E33EA4D00E81A9E /* Sources */,
+				A1C6DEE92E33EA4D00E81A9E /* Frameworks */,
+				A1C6DEEA2E33EA4D00E81A9E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A1C6DEF22E33EA4D00E81A9E /* SubTrackrWidget */,
+			);
+			name = SubTrackrWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = SubTrackrWidgetExtension;
+			productReference = A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -197,6 +287,9 @@
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = A1466BC02E339FF9002FAA07;
 					};
+					A1C6DEEB2E33EA4D00E81A9E = {
+						CreatedOnToolsVersion = 16.4;
+					};
 				};
 			};
 			buildConfigurationList = A1466BBC2E339FF9002FAA07 /* Build configuration list for PBXProject "SubTrackr" */;
@@ -216,6 +309,7 @@
 				A1466BC02E339FF9002FAA07 /* SubTrackr */,
 				A1466BD12E339FFA002FAA07 /* SubTrackrTests */,
 				A1466BDB2E339FFA002FAA07 /* SubTrackrUITests */,
+				A1C6DEEB2E33EA4D00E81A9E /* SubTrackrWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -236,6 +330,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A1466BDA2E339FFA002FAA07 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1C6DEEA2E33EA4D00E81A9E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -266,6 +367,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A1C6DEE82E33EA4D00E81A9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -278,6 +386,11 @@
 			isa = PBXTargetDependency;
 			target = A1466BC02E339FF9002FAA07 /* SubTrackr */;
 			targetProxy = A1466BDD2E339FFA002FAA07 /* PBXContainerItemProxy */;
+		};
+		A1C6DF012E33EA4F00E81A9E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1C6DEEB2E33EA4D00E81A9E /* SubTrackrWidgetExtension */;
+			targetProxy = A1C6DF002E33EA4F00E81A9E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -568,6 +681,65 @@
 			};
 			name = Release;
 		};
+		A1C6DF042E33EA4F00E81A9E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q6Q46HQ9H2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SubTrackrWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SubTrackrWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = iden.SubTrackr.SubTrackrWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1C6DF052E33EA4F00E81A9E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = Q6Q46HQ9H2;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SubTrackrWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SubTrackrWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = iden.SubTrackr.SubTrackrWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -603,6 +775,15 @@
 			buildConfigurations = (
 				A1466BEE2E339FFA002FAA07 /* Debug */,
 				A1466BEF2E339FFA002FAA07 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1C6DF062E33EA4F00E81A9E /* Build configuration list for PBXNativeTarget "SubTrackrWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1C6DF042E33EA4F00E81A9E /* Debug */,
+				A1C6DF052E33EA4F00E81A9E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

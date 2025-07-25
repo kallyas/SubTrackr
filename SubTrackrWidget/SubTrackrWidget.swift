@@ -1,66 +1,183 @@
+//
+//  SubTrackrWidget.swift
+//  SubTrackrWidget
+//
+//  Created by Tumuhirwe Iden on 25/07/2025.
+//
+
 import WidgetKit
 import SwiftUI
 
-struct Provider: TimelineProvider {
-    private let dataManager = WidgetDataManager.shared
+// Shared data structures for widget
+struct WidgetSubscription: Codable, Identifiable {
+    let id: String
+    let name: String
+    let cost: Double
+    let currencyCode: String
+    let billingCycle: String
+    let nextBillingDate: Date
+    let category: String
+    let iconName: String
+    let isActive: Bool
     
-    func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), monthlyTotal: 127.50, upcomingRenewals: 3, activeSubscriptions: 8)
+    var formattedCost: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currencyCode
+        return formatter.string(from: NSNumber(value: cost)) ?? "\(cost)"
     }
+    
+    var categoryColor: Color {
+        switch category {
+        case "Streaming": return .red
+        case "Software": return .blue
+        case "Fitness": return .green
+        case "Gaming": return .purple
+        case "Utilities": return .orange
+        case "News": return .gray
+        case "Music": return .pink
+        case "Productivity": return .teal
+        default: return .brown
+        }
+    }
+}
 
-    func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        let subscriptions = dataManager.getSampleSubscriptions()
-        let monthlyTotal = dataManager.calculateMonthlyTotal(subscriptions: subscriptions)
-        let upcomingRenewals = dataManager.getUpcomingRenewals(subscriptions: subscriptions)
+struct WidgetData: Codable {
+    let subscriptions: [WidgetSubscription]
+    let monthlyTotal: Double
+    let userCurrencyCode: String
+    let lastUpdated: Date
+    
+    var upcomingRenewals: [WidgetSubscription] {
+        let calendar = Calendar.current
+        let today = Date()
+        let oneWeekFromNow = calendar.date(byAdding: .day, value: 7, to: today) ?? today
         
-        let entry = SimpleEntry(
-            date: Date(),
-            monthlyTotal: monthlyTotal,
-            upcomingRenewals: upcomingRenewals,
-            activeSubscriptions: subscriptions.count
+        return subscriptions.filter { subscription in
+            subscription.isActive &&
+            subscription.nextBillingDate >= today &&
+            subscription.nextBillingDate <= oneWeekFromNow
+        }.sorted { $0.nextBillingDate < $1.nextBillingDate }
+    }
+    
+    var formattedMonthlyTotal: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = userCurrencyCode
+        return formatter.string(from: NSNumber(value: monthlyTotal)) ?? "\(monthlyTotal)"
+    }
+}
+
+class WidgetDataManager {
+    static let shared = WidgetDataManager()
+    private let appGroupId = "group.com.iden.SubTrackr"
+    private let dataKey = "widgetData"
+    
+    private init() {}
+    
+    private var userDefaults: UserDefaults? {
+        return UserDefaults(suiteName: appGroupId)
+    }
+    
+    func saveWidgetData(_ data: WidgetData) {
+        guard let encoder = try? JSONEncoder().encode(data),
+              let userDefaults = userDefaults else { return }
+        
+        userDefaults.set(encoder, forKey: dataKey)
+        userDefaults.synchronize()
+    }
+    
+    func loadWidgetData() -> WidgetData? {
+        guard let userDefaults = userDefaults,
+              let data = userDefaults.data(forKey: dataKey),
+              let widgetData = try? JSONDecoder().decode(WidgetData.self, from: data) else {
+            return getSampleData()
+        }
+        
+        return widgetData
+    }
+    
+    func getSampleData() -> WidgetData {
+        let sampleSubscriptions = [
+            WidgetSubscription(
+                id: "1",
+                name: "Netflix",
+                cost: 15.99,
+                currencyCode: "USD",
+                billingCycle: "Monthly",
+                nextBillingDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+                category: "Streaming",
+                iconName: "tv.fill",
+                isActive: true
+            ),
+            WidgetSubscription(
+                id: "2",
+                name: "Spotify",
+                cost: 9.99,
+                currencyCode: "USD",
+                billingCycle: "Monthly",
+                nextBillingDate: Calendar.current.date(byAdding: .day, value: 12, to: Date()) ?? Date(),
+                category: "Music",
+                iconName: "music.note",
+                isActive: true
+            ),
+            WidgetSubscription(
+                id: "3",
+                name: "Adobe Creative",
+                cost: 52.99,
+                currencyCode: "USD",
+                billingCycle: "Monthly",
+                nextBillingDate: Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date(),
+                category: "Software",
+                iconName: "briefcase.fill",
+                isActive: true
+            )
+        ]
+        
+        return WidgetData(
+            subscriptions: sampleSubscriptions,
+            monthlyTotal: 78.97,
+            userCurrencyCode: "USD",
+            lastUpdated: Date()
         )
-        completion(entry)
+    }
+}
+
+struct Provider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> SubTrackrEntry {
+        SubTrackrEntry(date: Date(), configuration: ConfigurationAppIntent(), widgetData: WidgetDataManager.shared.getSampleData())
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        let subscriptions = dataManager.getSampleSubscriptions()
-        let monthlyTotal = dataManager.calculateMonthlyTotal(subscriptions: subscriptions)
-        let upcomingRenewals = dataManager.getUpcomingRenewals(subscriptions: subscriptions)
+    func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SubTrackrEntry {
+        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? WidgetDataManager.shared.getSampleData()
+        return SubTrackrEntry(date: Date(), configuration: configuration, widgetData: widgetData)
+    }
+    
+    func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SubTrackrEntry> {
+        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? WidgetDataManager.shared.getSampleData()
         
-        var entries: [SimpleEntry] = []
+        // Create entries for the next 4 hours to keep widget updated
+        var entries: [SubTrackrEntry] = []
         let currentDate = Date()
         
-        // Create entries for the next 4 hours
-        for hourOffset in 0 ..< 4 {
+        for hourOffset in 0..<4 {
             let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SimpleEntry(
-                date: entryDate,
-                monthlyTotal: monthlyTotal,
-                upcomingRenewals: upcomingRenewals,
-                activeSubscriptions: subscriptions.count
-            )
+            let entry = SubTrackrEntry(date: entryDate, configuration: configuration, widgetData: widgetData)
             entries.append(entry)
         }
 
-        // Update timeline every 4 hours
-        let timeline = Timeline(entries: entries, policy: .atEnd)
-        completion(timeline)
+        // Update every hour
+        return Timeline(entries: entries, policy: .atEnd)
     }
 }
 
-struct SimpleEntry: TimelineEntry {
+struct SubTrackrEntry: TimelineEntry {
     let date: Date
-    let monthlyTotal: Double
-    let upcomingRenewals: Int
-    let activeSubscriptions: Int
-    
-    var formattedMonthlyTotal: String {
-        let currency = WidgetDataManager.shared.selectedCurrency
-        return currency.formatAmount(monthlyTotal)
-    }
+    let configuration: ConfigurationAppIntent
+    let widgetData: WidgetData
 }
 
-struct SubTrackrWidgetEntryView : View {
+struct SubTrackrWidgetEntryView: View {
     var entry: Provider.Entry
     @Environment(\.widgetFamily) var family
 
@@ -79,282 +196,267 @@ struct SubTrackrWidgetEntryView : View {
 }
 
 struct SmallWidgetView: View {
-    let entry: SimpleEntry
+    let entry: SubTrackrEntry
     
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color.blue, Color.purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 20, height: 20)
-                    
-                    Image(systemName: "creditcard.fill")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                }
-                
-                Spacer()
-                
+                Image(systemName: "creditcard.fill")
+                    .foregroundColor(.blue)
                 Text("SubTrackr")
                     .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            VStack(spacing: 2) {
-                Text(entry.formattedMonthlyTotal)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .minimumScaleFactor(0.6)
-                    .lineLimit(1)
-                
-                Text("per month")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-            
-            HStack(spacing: 8) {
-                if entry.upcomingRenewals > 0 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "clock.fill")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                        Text("\(entry.upcomingRenewals)")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .foregroundColor(.orange)
-                    }
-                }
-                
+                    .fontWeight(.semibold)
                 Spacer()
+            }
+            
+            switch entry.configuration.widgetType {
+            case .summary:
+                summaryView
+            case .upcomingRenewals:
+                upcomingRenewalsView
+            case .totalSpending:
+                totalSpendingView
+            }
+            
+            Spacer()
+        }
+        .padding(12)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+    
+    private var summaryView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Monthly Total")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            
+            Text(entry.widgetData.formattedMonthlyTotal)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            Text("\(entry.widgetData.subscriptions.filter(\.isActive).count) active")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private var upcomingRenewalsView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Next Renewal")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            
+            if let nextRenewal = entry.widgetData.upcomingRenewals.first {
+                Text(nextRenewal.name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
                 
-                Text("\(entry.activeSubscriptions) active")
-                    .font(.caption2)
+                Text(nextRenewal.nextBillingDate, style: .date)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(nextRenewal.formattedCost)
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            } else {
+                Text("No renewals")
+                    .font(.subheadline)
                     .foregroundColor(.secondary)
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Material.regularMaterial)
-        )
+    }
+    
+    private var totalSpendingView: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("This Month")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            
+            Text(entry.widgetData.formattedMonthlyTotal)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+            
+            let activeCount = entry.widgetData.subscriptions.filter(\.isActive).count
+            Text("\(activeCount) subscription\(activeCount == 1 ? "" : "s")")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
     }
 }
 
 struct MediumWidgetView: View {
-    let entry: SimpleEntry
+    let entry: SubTrackrEntry
     
     var body: some View {
         HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    ZStack {
-                        Circle()
-                            .fill(LinearGradient(
-                                colors: [Color.blue, Color.purple],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ))
-                            .frame(width: 24, height: 24)
-                        
-                        Image(systemName: "creditcard.fill")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
-                    
+                    Image(systemName: "creditcard.fill")
+                        .foregroundColor(.blue)
                     Text("SubTrackr")
                         .font(.headline)
                         .fontWeight(.semibold)
-                    
                     Spacer()
                 }
                 
+                Text("Monthly Total")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(entry.widgetData.formattedMonthlyTotal)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                
+                Text("\(entry.widgetData.subscriptions.filter(\.isActive).count) active subscriptions")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Upcoming Renewals")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.secondary)
+                
+                ForEach(Array(entry.widgetData.upcomingRenewals.prefix(3)), id: \.id) { subscription in
+                    HStack {
+                        Image(systemName: subscription.iconName)
+                            .foregroundColor(subscription.categoryColor)
+                            .frame(width: 16)
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(subscription.name)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .lineLimit(1)
+                            
+                            Text(subscription.nextBillingDate, style: .date)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Text(subscription.formattedCost)
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                    }
+                }
+                
+                if entry.widgetData.upcomingRenewals.isEmpty {
+                    Text("No upcoming renewals")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
+        }
+        .padding(16)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+struct LargeWidgetView: View {
+    let entry: SubTrackrEntry
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "creditcard.fill")
+                    .foregroundColor(.blue)
+                Text("SubTrackr")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("Updated \(entry.date, style: .time)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            
+            HStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Monthly Total")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text(entry.formattedMonthlyTotal)
-                        .font(.title2)
+                    Text(entry.widgetData.formattedMonthlyTotal)
+                        .font(.title)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                }
-                
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(entry.activeSubscriptions)")
-                            .font(.headline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.blue)
-                        Text("Active")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
                     
-                    if entry.upcomingRenewals > 0 {
+                    Text("\(entry.widgetData.subscriptions.filter(\.isActive).count) active subscriptions")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Upcoming Renewals")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                
+                ForEach(Array(entry.widgetData.upcomingRenewals.prefix(5)), id: \.id) { subscription in
+                    HStack {
+                        Image(systemName: subscription.iconName)
+                            .foregroundColor(subscription.categoryColor)
+                            .frame(width: 20)
+                        
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(entry.upcomingRenewals)")
-                                .font(.headline)
+                            Text(subscription.name)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            
+                            HStack {
+                                Text(subscription.nextBillingDate, style: .date)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Text("•")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                
+                                Text(subscription.category)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        
+                        Spacer()
+                        
+                        VStack(alignment: .trailing) {
+                            Text(subscription.formattedCost)
+                                .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundColor(.orange)
-                            Text("Due Soon")
+                            
+                            Text(subscription.billingCycle)
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                     }
-                }
-            }
-            
-            Spacer()
-            
-            // Enhanced chart representation
-            VStack(spacing: 3) {
-                ForEach(0..<5) { index in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(LinearGradient(
-                            colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.8)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ))
-                        .frame(width: 16, height: CGFloat(8 + index * 4))
-                }
-            }
-            .frame(width: 20)
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Material.regularMaterial)
-        )
-    }
-}
-
-struct LargeWidgetView: View {
-    let entry: SimpleEntry
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            HStack {
-                ZStack {
-                    Circle()
-                        .fill(LinearGradient(
-                            colors: [Color.blue, Color.purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ))
-                        .frame(width: 28, height: 28)
-                    
-                    Image(systemName: "creditcard.fill")
-                        .font(.subheadline)
-                        .foregroundColor(.white)
+                    .padding(.vertical, 2)
                 }
                 
-                Text("SubTrackr")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Text(entry.date, style: .date)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            // Monthly total card
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Monthly Total")
-                    .font(.headline)
-                    .foregroundColor(.secondary)
-                
-                Text(entry.formattedMonthlyTotal)
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .minimumScaleFactor(0.8)
-                    .lineLimit(1)
-            }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.blue.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                    )
-            )
-            
-            // Stats row
-            HStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 4) {
+                if entry.widgetData.upcomingRenewals.isEmpty {
+                    HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
                             .foregroundColor(.green)
-                        Text("Active Subscriptions")
+                        Text("No renewals in the next 7 days")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
-                    Text("\(entry.activeSubscriptions)")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                }
-                
-                Spacer()
-                
-                if entry.upcomingRenewals > 0 {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text("Due This Week")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Image(systemName: "clock.fill")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                        }
-                        Text("\(entry.upcomingRenewals)")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
-                    }
-                } else {
-                    VStack(alignment: .trailing, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text("Due This Week")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            Image(systemName: "checkmark.circle")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                        }
-                        Text("None")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.green)
-                    }
+                    .padding(.vertical, 8)
                 }
             }
             
             Spacer()
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Material.regularMaterial)
-        )
+        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
@@ -362,18 +464,51 @@ struct SubTrackrWidget: Widget {
     let kind: String = "SubTrackrWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: ConfigurationAppIntent.self, provider: Provider()) { entry in
             SubTrackrWidgetEntryView(entry: entry)
         }
         .configurationDisplayName("SubTrackr")
-        .description("Keep track of your monthly subscription spending.")
+        .description("Keep track of your subscription renewals and spending.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
+extension ConfigurationAppIntent {
+    fileprivate static var summary: ConfigurationAppIntent {
+        let intent = ConfigurationAppIntent()
+        intent.widgetType = .summary
+        return intent
+    }
+    
+    fileprivate static var upcomingRenewals: ConfigurationAppIntent {
+        let intent = ConfigurationAppIntent()
+        intent.widgetType = .upcomingRenewals
+        return intent
+    }
+    
+    fileprivate static var totalSpending: ConfigurationAppIntent {
+        let intent = ConfigurationAppIntent()
+        intent.widgetType = .totalSpending
+        return intent
+    }
+}
+
+
 #Preview(as: .systemSmall) {
     SubTrackrWidget()
 } timeline: {
-    SimpleEntry(date: .now, monthlyTotal: 1247.89, upcomingRenewals: 3, activeSubscriptions: 12)
-    SimpleEntry(date: .now, monthlyTotal: 2089.99, upcomingRenewals: 1, activeSubscriptions: 8)
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
+    SubTrackrEntry(date: .now, configuration: .upcomingRenewals, widgetData: WidgetDataManager.shared.getSampleData())
+}
+
+#Preview(as: .systemMedium) {
+    SubTrackrWidget()
+} timeline: {
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
+}
+
+#Preview(as: .systemLarge) {
+    SubTrackrWidget()
+} timeline: {
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
 }

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import WidgetKit
 
 class SubscriptionViewModel: ObservableObject {
     @Published var subscriptions: [Subscription] = []
@@ -29,6 +30,14 @@ class SubscriptionViewModel: ObservableObject {
         currencyManager.$selectedCurrency
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+                self?.updateWidgetData()
+            }
+            .store(in: &cancellables)
+        
+        // Update widgets whenever subscriptions change
+        $subscriptions
+            .sink { [weak self] _ in
+                self?.updateWidgetData()
             }
             .store(in: &cancellables)
     }
@@ -116,5 +125,31 @@ class SubscriptionViewModel: ObservableObject {
             subscription.nextBillingDate >= today &&
             subscription.nextBillingDate <= futureDate
         }.sorted { $0.nextBillingDate < $1.nextBillingDate }
+    }
+    
+    private func updateWidgetData() {
+        let widgetSubscriptions = subscriptions.map { subscription in
+            WidgetSubscription(
+                id: subscription.id,
+                name: subscription.name,
+                cost: subscription.cost,
+                currencyCode: subscription.currency.code,
+                billingCycle: subscription.billingCycle.rawValue,
+                nextBillingDate: subscription.nextBillingDate,
+                category: subscription.category.rawValue,
+                iconName: subscription.iconName,
+                isActive: subscription.isActive
+            )
+        }
+        
+        let widgetData = WidgetData(
+            subscriptions: widgetSubscriptions,
+            monthlyTotal: monthlyTotal,
+            userCurrencyCode: currencyManager.selectedCurrency.code,
+            lastUpdated: Date()
+        )
+        
+        WidgetDataManager.shared.saveWidgetData(widgetData)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
