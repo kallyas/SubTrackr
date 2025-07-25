@@ -11,6 +11,7 @@ import CloudKit
 @main
 struct SubTrackrApp: App {
     @AppStorage("isFirstLaunch") private var isFirstLaunch = true
+    @State private var showSplashScreen = true
     
     init() {
         // Initialize CloudKit service
@@ -23,7 +24,13 @@ struct SubTrackrApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if isFirstLaunch {
+                if showSplashScreen {
+                    SplashScreenView {
+                        withAnimation(.easeInOut(duration: 0.5)) {
+                            showSplashScreen = false
+                        }
+                    }
+                } else if isFirstLaunch {
                     OnboardingView(isFirstLaunch: $isFirstLaunch)
                 } else {
                     ContentView()
