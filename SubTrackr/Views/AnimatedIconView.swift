@@ -169,16 +169,10 @@ struct SpringButton<Content: View>: View {
 struct CounterAnimation: View {
     let value: Double
     @State private var animatedValue: Double = 0
-    
-    private var formatter: NumberFormatter {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter
-    }
+    @StateObject private var currencyManager = CurrencyManager.shared
     
     var body: some View {
-        Text(formatter.string(from: NSNumber(value: animatedValue)) ?? "$0.00")
+        Text(currencyManager.formatAmount(animatedValue))
             .contentTransition(.numericText())
             .onAppear {
                 withAnimation(.easeOut(duration: 1.0)) {
@@ -199,7 +193,7 @@ struct CounterAnimation: View {
             subscription: Subscription(
                 name: "Netflix",
                 cost: 13.99,
-                billingCycle: .monthly,
+                currency: .USD, billingCycle: .monthly,
                 startDate: Date(),
                 category: .streaming
             )
