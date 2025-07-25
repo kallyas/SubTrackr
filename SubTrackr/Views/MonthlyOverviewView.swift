@@ -61,6 +61,7 @@ struct MonthlyOverviewView: View {
             Text("Spending by Category")
                 .font(.headline)
                 .padding(.horizontal)
+                .padding(.top)
             
             if viewModel.chartData.isEmpty {
                 Text("No data available")
@@ -87,6 +88,7 @@ struct MonthlyOverviewView: View {
             Text("Category Breakdown")
                 .font(.headline)
                 .padding(.horizontal)
+                .padding(.top)
             
             LazyVStack(spacing: 8) {
                 ForEach(viewModel.chartData, id: \.category) { item in
@@ -104,6 +106,7 @@ struct MonthlyOverviewView: View {
                 }
             }
             .padding(.horizontal)
+            .padding(.bottom)
         }
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -116,6 +119,7 @@ struct MonthlyOverviewView: View {
             Text("Upcoming Renewals")
                 .font(.headline)
                 .padding(.horizontal)
+                .padding(.top)
             
             let upcomingSubscriptions = viewModel.getUpcomingRenewals()
             
@@ -131,6 +135,7 @@ struct MonthlyOverviewView: View {
                     }
                 }
                 .padding(.horizontal)
+                .padding(.bottom)
             }
         }
         .background(
@@ -165,7 +170,7 @@ struct CategoryRowView: View {
             
             Spacer()
             
-            Text("$\(amount, specifier: "%.2f")")
+            Text(CurrencyManager.shared.formatAmount(amount))
                 .font(.subheadline)
                 .fontWeight(.semibold)
         }
@@ -224,7 +229,10 @@ struct UpcomingRenewalRowView: View {
             
             Spacer()
             
-            Text("$\(subscription.cost, specifier: "%.2f")")
+            let currencyManager = CurrencyManager.shared
+            let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+            
+            Text(currencyManager.formatAmount(convertedCost))
                 .font(.subheadline)
                 .fontWeight(.semibold)
         }
