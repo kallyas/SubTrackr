@@ -1,29 +1,76 @@
 import WidgetKit
 import SwiftUI
+import CloudKit
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
-        SimpleEntry(date: Date(), monthlyTotal: 127.50, upcomingRenewals: 3)
+        SimpleEntry(date: Date(), monthlyTotal: 127.50, upcomingRenewals: 3, activeSubscriptions: 8)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (SimpleEntry) -> ()) {
-        let entry = SimpleEntry(date: Date(), monthlyTotal: 127.50, upcomingRenewals: 3)
-        completion(entry)
+        if context.isPreview {
+            let entry = SimpleEntry(date: Date(), monthlyTotal: 1247.89, upcomingRenewals: 3, activeSubscriptions: 12)
+            completion(entry)
+        } else {
+            fetchSubscriptionData { monthlyTotal, upcomingRenewals, activeCount in
+                let entry = SimpleEntry(
+                    date: Date(),
+                    monthlyTotal: monthlyTotal,
+                    upcomingRenewals: upcomingRenewals,
+                    activeSubscriptions: activeCount
+                )
+                completion(entry)
+            }
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> ()) {
-        var entries: [SimpleEntry] = []
+        fetchSubscriptionData { monthlyTotal, upcomingRenewals, activeCount in
+            var entries: [SimpleEntry] = []
+            let currentDate = Date()
+            
+            // Create entries for the next 4 hours
+            for hourOffset in 0 ..< 4 {
+                let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
+                let entry = SimpleEntry(
+                    date: entryDate,
+                    monthlyTotal: monthlyTotal,
+                    upcomingRenewals: upcomingRenewals,
+                    activeSubscriptions: activeCount
+                )
+                entries.append(entry)
+            }
 
-        // Generate a timeline consisting of five entries an hour apart, starting from the current date.
-        let currentDate = Date()
-        for hourOffset in 0 ..< 5 {
-            let entryDate = Calendar.current.date(byAdding: .hour, value: hourOffset, to: currentDate)!
-            let entry = SimpleEntry(date: entryDate, monthlyTotal: 127.50, upcomingRenewals: 3)
-            entries.append(entry)
+            // Update timeline every 4 hours
+            let timeline = Timeline(entries: entries, policy: .atEnd)
+            completion(timeline)
         }
-
-        let timeline = Timeline(entries: entries, policy: .atEnd)
-        completion(timeline)
+    }
+    
+    private func fetchSubscriptionData(completion: @escaping (Double, Int, Int) -> Void) {
+        let cloudKitService = CloudKitService.shared
+        
+        // Use existing subscriptions or fallback to sample data
+        let subscriptions = cloudKitService.subscriptions.isEmpty ? SampleData.subscriptions : cloudKitService.subscriptions
+        let activeSubscriptions = subscriptions.filter { $0.isActive }
+        
+        // Calculate monthly total
+        let monthlyTotal = activeSubscriptions.reduce(0) { total, subscription in
+            let convertedCost = CurrencyManager.shared.convertToUserCurrency(subscription.cost, from: subscription.currency)
+            return total + (convertedCost * subscription.billingCycle.monthlyEquivalent)
+        }
+        
+        // Calculate upcoming renewals (next 7 days)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let nextWeek = calendar.date(byAdding: .day, value: 7, to: today)!
+        
+        let upcomingRenewals = activeSubscriptions.filter { subscription in
+            let nextBilling = subscription.nextBillingDate
+            return nextBilling >= today && nextBilling < nextWeek
+        }.count
+        
+        completion(monthlyTotal, upcomingRenewals, activeSubscriptions.count)
     }
 }
 
@@ -31,6 +78,19 @@ struct SimpleEntry: TimelineEntry {
     let date: Date
     let monthlyTotal: Double
     let upcomingRenewals: Int
+    let activeSubscriptions: Int
+    
+    var formattedMonthlyTotal: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = CurrencyManager.shared.selectedCurrency.code
+        formatter.currencySymbol = CurrencyManager.shared.selectedCurrency.symbol
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSize = 3
+        formatter.maximumFractionDigits = 2
+        formatter.minimumFractionDigits = 0
+        return formatter.string(from: NSNumber(value: monthlyTotal)) ?? CurrencyManager.shared.selectedCurrency.formatAmount(monthlyTotal)
+    }
 }
 
 struct SubTrackrWidgetEntryView : View {
@@ -57,10 +117,22 @@ struct SmallWidgetView: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack {
-                Image(systemName: "calendar.badge.checkmark")
-                    .font(.headline)
-                    .foregroundColor(.blue)
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color.blue, Color.purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 20, height: 20)
+                    
+                    Image(systemName: "creditcard.fill")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                }
+                
                 Spacer()
+                
                 Text("SubTrackr")
                     .font(.caption)
                     .fontWeight(.medium)
@@ -69,11 +141,13 @@ struct SmallWidgetView: View {
             
             Spacer()
             
-            VStack(spacing: 4) {
-                Text("$\(entry.monthlyTotal, specifier: "%.0f")")
-                    .font(.title2)
+            VStack(spacing: 2) {
+                Text(entry.formattedMonthlyTotal)
+                    .font(.title3)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
                 
                 Text("per month")
                     .font(.caption2)
@@ -82,19 +156,31 @@ struct SmallWidgetView: View {
             
             Spacer()
             
-            if entry.upcomingRenewals > 0 {
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .font(.caption2)
-                        .foregroundColor(.orange)
-                    Text("\(entry.upcomingRenewals) due soon")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+            HStack(spacing: 8) {
+                if entry.upcomingRenewals > 0 {
+                    HStack(spacing: 2) {
+                        Image(systemName: "clock.fill")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                        Text("\(entry.upcomingRenewals)")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
                 }
+                
+                Spacer()
+                
+                Text("\(entry.activeSubscriptions) active")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(Color(UIColor.systemBackground))
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Material.regularMaterial)
+        )
     }
 }
 
@@ -102,56 +188,89 @@ struct MediumWidgetView: View {
     let entry: SimpleEntry
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 8) {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Image(systemName: "calendar.badge.checkmark")
-                        .font(.title3)
-                        .foregroundColor(.blue)
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(
+                                colors: [Color.blue, Color.purple],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ))
+                            .frame(width: 24, height: 24)
+                        
+                        Image(systemName: "creditcard.fill")
+                            .font(.caption)
+                            .foregroundColor(.white)
+                    }
+                    
                     Text("SubTrackr")
                         .font(.headline)
                         .fontWeight(.semibold)
+                    
                     Spacer()
                 }
-                
-                Spacer()
                 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Monthly Total")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     
-                    Text("$\(entry.monthlyTotal, specifier: "%.2f")")
-                        .font(.title)
+                    Text(entry.formattedMonthlyTotal)
+                        .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                 }
                 
-                if entry.upcomingRenewals > 0 {
-                    HStack {
-                        Image(systemName: "clock.fill")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                        Text("\(entry.upcomingRenewals) subscriptions due soon")
-                            .font(.caption)
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(entry.activeSubscriptions)")
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                        Text("Active")
+                            .font(.caption2)
                             .foregroundColor(.secondary)
+                    }
+                    
+                    if entry.upcomingRenewals > 0 {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(entry.upcomingRenewals)")
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                            Text("Due Soon")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }
             
             Spacer()
             
-            // Simple chart representation
-            VStack(spacing: 4) {
-                ForEach(0..<4) { index in
+            // Enhanced chart representation
+            VStack(spacing: 3) {
+                ForEach(0..<5) { index in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.blue.opacity(Double(index + 1) * 0.25))
-                        .frame(width: 20, height: CGFloat(10 + index * 5))
+                        .fill(LinearGradient(
+                            colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.8)],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .frame(width: 16, height: CGFloat(8 + index * 4))
                 }
             }
+            .frame(width: 20)
         }
-        .padding()
-        .background(Color(UIColor.systemBackground))
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Material.regularMaterial)
+        )
     }
 }
 
@@ -162,58 +281,113 @@ struct LargeWidgetView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             HStack {
-                Image(systemName: "calendar.badge.checkmark")
-                    .font(.title2)
-                    .foregroundColor(.blue)
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(
+                            colors: [Color.blue, Color.purple],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .frame(width: 28, height: 28)
+                    
+                    Image(systemName: "creditcard.fill")
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                }
+                
                 Text("SubTrackr")
                     .font(.title2)
                     .fontWeight(.semibold)
+                
                 Spacer()
+                
                 Text(entry.date, style: .date)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
-            // Monthly total
+            // Monthly total card
             VStack(alignment: .leading, spacing: 8) {
                 Text("Monthly Total")
                     .font(.headline)
                     .foregroundColor(.secondary)
                 
-                Text("$\(entry.monthlyTotal, specifier: "%.2f")")
+                Text(entry.formattedMonthlyTotal)
                     .font(.largeTitle)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
             }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.blue.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                    )
+            )
             
-            Divider()
-            
-            // Upcoming renewals
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .font(.subheadline)
-                        .foregroundColor(.orange)
-                    Text("Upcoming Renewals")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
+            // Stats row
+            HStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Text("Active Subscriptions")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    Text("\(entry.activeSubscriptions)")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                 }
                 
+                Spacer()
+                
                 if entry.upcomingRenewals > 0 {
-                    Text("\(entry.upcomingRenewals) subscriptions due this week")
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("Due This Week")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "clock.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        Text("\(entry.upcomingRenewals)")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
                 } else {
-                    Text("No renewals this week")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("Due This Week")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            Image(systemName: "checkmark.circle")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                        }
+                        Text("None")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.green)
+                    }
                 }
             }
             
             Spacer()
         }
-        .padding()
-        .background(Color(UIColor.systemBackground))
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Material.regularMaterial)
+        )
     }
 }
 
@@ -233,6 +407,6 @@ struct SubTrackrWidget: Widget {
 #Preview(as: .systemSmall) {
     SubTrackrWidget()
 } timeline: {
-    SimpleEntry(date: .now, monthlyTotal: 127.50, upcomingRenewals: 3)
-    SimpleEntry(date: .now, monthlyTotal: 89.99, upcomingRenewals: 1)
+    SimpleEntry(date: .now, monthlyTotal: 1247.89, upcomingRenewals: 3, activeSubscriptions: 12)
+    SimpleEntry(date: .now, monthlyTotal: 2089.99, upcomingRenewals: 1, activeSubscriptions: 8)
 }
