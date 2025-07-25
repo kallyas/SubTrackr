@@ -16,10 +16,11 @@ class CloudKitService: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     private init() {
-        container = CKContainer(identifier: "iCloud.com.yourcompany.SubTrackr")
+        container = CKContainer(identifier: "iCloud.com.iden.SubTrackr")
         database = container.privateCloudDatabase
         
         checkAccountStatus()
+        createSchemaIfNeeded()
         fetchSubscriptions()
         setupSubscription()
     }
@@ -59,6 +60,40 @@ class CloudKitService: ObservableObject {
         }
     }
     
+    private func createSchemaIfNeeded() {
+        // Check if Subscription record type exists by trying to fetch its schema
+        let operation = CKFetchRecordZoneChangesOperation()
+        database.add(operation)
+        
+        // Create a test record to verify/create the schema
+        let testRecord = CKRecord(recordType: "Subscription")
+        testRecord["name"] = "Test"
+        testRecord["cost"] = 0.0
+        testRecord["currencyCode"] = "USD"
+        testRecord["billingCycle"] = "Monthly"
+        testRecord["startDate"] = Date()
+        testRecord["category"] = "Other"
+        testRecord["iconName"] = "app.fill"
+        testRecord["isActive"] = true
+        
+        database.save(testRecord) { record, error in
+            if let error = error as? CKError {
+                if error.code == .unknownItem {
+                    print("Creating CloudKit schema for Subscription record type...")
+                    // The schema will be created automatically when we save the first record
+                    // This is expected to fail the first time, but will create the schema
+                } else {
+                    print("CloudKit schema check error: \(error.localizedDescription)")
+                }
+            } else if let record = record {
+                // Schema exists, delete the test record
+                self.database.delete(withRecordID: record.recordID) { _, _ in
+                    print("CloudKit schema verified and test record cleaned up")
+                }
+            }
+        }
+    }
+    
     private func setupSubscription() {
         let subscriptionID = "subscription-updates"
         let subscription = CKQuerySubscription(
@@ -90,22 +125,39 @@ class CloudKitService: ObservableObject {
         let query = CKQuery(recordType: "Subscription", predicate: NSPredicate(value: true))
         query.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         
-        database.perform(query, inZoneWith: nil) { [weak self] records, error in
-            DispatchQueue.main.async {
-                self?.isLoading = false
-                
-                if let error = error {
-                    self?.error = CloudKitError.fetchFailed(error.localizedDescription)
-                    // Fallback to sample data on error
-                    self?.useLocalData = true
-                    self?.loadSampleData()
-                    return
+        database.fetch(withQuery: query, inZoneWith: nil, desiredKeys: nil, resultsLimit: CKQueryOperation.maximumResults) { [weak self] result in
+            switch result {
+            case .success((let matchResults, _)):
+                let records = matchResults.compactMap { matchResult in
+                    switch matchResult.1 {
+                    case .success(let record):
+                        return record
+                    case .failure:
+                        return nil
+                    }
                 }
-                
-                guard let records = records else { return }
-                
-                self?.subscriptions = records.compactMap { Subscription(from: $0) }
+                self?.handleFetchResults(records: records, error: nil)
+            case .failure(let error):
+                self?.handleFetchResults(records: nil, error: error)
             }
+        }
+    }
+    
+    private func handleFetchResults(records: [CKRecord]?, error: Error?) {
+        DispatchQueue.main.async {
+            self.isLoading = false
+            
+            if let error = error {
+                self.error = CloudKitError.fetchFailed(error.localizedDescription)
+                // Fallback to sample data on error
+                self.useLocalData = true
+                self.loadSampleData()
+                return
+            }
+            
+            guard let records = records else { return }
+            
+            self.subscriptions = records.compactMap { Subscription(from: $0) }
         }
     }
     
