@@ -8,34 +8,66 @@
 import XCTest
 
 final class SubTrackrUITests: XCTestCase {
+    
+    var app: XCUIApplication!
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
+        app = XCUIApplication()
+        app.launchEnvironment["IS_RUNNING_UI_TESTS"] = "1"
     }
 
     override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+        app = nil
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
+    func testAppLaunch() throws {
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        
+        // Verify the app launches successfully
+        XCTAssertTrue(app.exists, "App should launch successfully")
+    }
+    
+    @MainActor
+    func testNavigationFlow() throws {
+        app.launch()
+        
+        // Test basic navigation elements exist
+        // Note: These would need to be updated based on actual UI elements
+        // This is a basic structure that can be expanded
+    }
+    
+    @MainActor
+    func testSubscriptionListView() throws {
+        app.launch()
+        
+        // Verify subscription list elements are accessible
+        // This would test the main subscription list view
+    }
+    
+    @MainActor
+    func testAddSubscriptionFlow() throws {
+        app.launch()
+        
+        // Test the add subscription flow
+        // This would verify the add subscription button and form
     }
 
     @MainActor
     func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
+        }
+    }
+    
+    @MainActor
+    func testMemoryPerformance() throws {
+        app.launch()
+        
+        measure(metrics: [XCTMemoryMetric()]) {
+            // Navigate through key screens to test memory usage
+            // This would include navigation to different views
         }
     }
 }
