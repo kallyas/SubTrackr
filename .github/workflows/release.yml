@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      
+    - name: Cache DerivedData
+      uses: actions/cache@v4
+      with:
+        path: ~/Library/Developer/Xcode/DerivedData
+        key: ${{ runner.os }}-release-derived-data-${{ hashFiles('**/project.pbxproj') }}
+        restore-keys: |
+          ${{ runner.os }}-release-derived-data-
+          ${{ runner.os }}-derived-data-
+          
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+        
+    - name: Run tests before release
+      run: |
+        xcodebuild \
+          -project SubTrackr.xcodeproj \
+          -scheme SubTrackr \
+          -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+          -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+          test
+          
+    - name: Build Archive
+      run: |
+        xcodebuild \
+          -project SubTrackr.xcodeproj \
+          -scheme SubTrackr \
+          -destination 'generic/platform=iOS' \
+          -archivePath ./build/SubTrackr.xcarchive \
+          -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+          archive
+          
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Generate changelog from git commits since last tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        if [ -n "$PREVIOUS_TAG" ]; then
+          CHANGELOG=$(git log --pretty=format:"- %s" $PREVIOUS_TAG..HEAD)
+        else
+          CHANGELOG=$(git log --pretty=format:"- %s" --max-count=20)
+        fi
+        
+        # Save changelog to file for multiline output
+        echo "$CHANGELOG" > changelog.txt
+        
+    - name: Create Release
+      uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: SubTrackr v${{ steps.version.outputs.version }}
+        body_path: changelog.txt
+        draft: false
+        prerelease: false
+        
+    - name: Upload Archive to Release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/SubTrackr.xcarchive
+        asset_name: SubTrackr-v${{ steps.version.outputs.version }}.xcarchive
+        asset_content_type: application/zip
+        
+    # Note: For App Store deployment, you would typically add steps here to:
+    # 1. Export IPA from archive
+    # 2. Upload to App Store Connect using xcrun altool or Transporter
+    # 3. This requires App Store Connect API key or app-specific password
+    
+    - name: Archive build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubTrackr-Release-v${{ steps.version.outputs.version }}
+        path: |
+          ./build/SubTrackr.xcarchive
+          changelog.txt
+        retention-days: 90
