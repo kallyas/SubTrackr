@@ -10,6 +10,7 @@ class CalendarViewModel: ObservableObject {
     @Published var monthlyTotal: Double = 0
     
     private let cloudKitService = CloudKitService.shared
+    private let currencyManager = CurrencyManager.shared
     private var cancellables = Set<AnyCancellable>()
     
     init() {
@@ -20,6 +21,14 @@ class CalendarViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.updateMonthlyTotal()
                 self?.updateSelectedDaySubscriptions()
+            }
+            .store(in: &cancellables)
+        
+        // Listen for currency changes and update totals
+        currencyManager.$selectedCurrency
+            .sink { [weak self] _ in
+                self?.updateMonthlyTotal()
+                self?.objectWillChange.send()
             }
             .store(in: &cancellables)
     }
@@ -106,14 +115,23 @@ class CalendarViewModel: ObservableObject {
     
     private func updateMonthlyTotal() {
         let activeSubscriptions = cloudKitService.subscriptions.filter { $0.isActive }
+        let currencyManager = CurrencyManager.shared
+        
         monthlyTotal = activeSubscriptions.reduce(0) { total, subscription in
-            total + (subscription.cost * subscription.billingCycle.monthlyEquivalent)
+            let monthlyCostInOriginalCurrency = subscription.cost * subscription.billingCycle.monthlyEquivalent
+            let convertedCost = currencyManager.convertToUserCurrency(monthlyCostInOriginalCurrency, from: subscription.currency)
+            return total + convertedCost
         }
     }
     
     func getTotalForDay(_ day: Int) -> Double {
         let subscriptions = getSubscriptionsForDay(day)
-        return subscriptions.reduce(0) { $0 + $1.cost }
+        let currencyManager = CurrencyManager.shared
+        
+        return subscriptions.reduce(0) { total, subscription in
+            let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+            return total + convertedCost
+        }
     }
 }
 
