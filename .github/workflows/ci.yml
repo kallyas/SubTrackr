@@ -9,53 +9,65 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: macos-14
-    
+    runs-on: macos-15 # Changed to macos-15 for latest environment; use macos-14 if preferred
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    - name: List Xcode installations
+      run: ls -l /Applications | grep Xcode
+      continue-on-error: true # Continue even if listing fails
+
     - name: Select Xcode version
-      run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-      
+      run: |
+        if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+        else
+          echo "Xcode 16.4 not found, falling back to default Xcode"
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        fi
+      continue-on-error: true # Continue to allow debugging if selection fails
+
     - name: Show Xcode version
       run: xcodebuild -version
-      
+
     - name: Show available simulators
       run: xcrun simctl list devices available
-      
+
     - name: Cache DerivedData
       uses: actions/cache@v4
       with:
         path: ~/Library/Developer/Xcode/DerivedData
-        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/project.pbxproj') }}
+        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }} # Broader hash
         restore-keys: |
           ${{ runner.os }}-derived-data-
-          
+
     - name: Build and Test
       run: |
         xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,name=iPhone 16' \
+          -destination 'platform=iOS Simulator,name=iPhone 15' \ # Changed to iPhone 15 for broader compatibility
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           -enableCodeCoverage YES \
           clean test
-          
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
         path: ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
-        
+        retention-days: 30 # Consistent retention period
+
     - name: Generate code coverage report
-      if: success()
+      if: always() # Run even if tests fail for debugging
       run: |
         xcrun xccov view --report --json ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult > coverage.json
-        
+      continue-on-error: true # Allow workflow to continue if coverage generation fails
+
     - name: Upload coverage to Codecov
-      if: success()
+      if: always() # Run even if tests fail
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.json
@@ -65,25 +77,35 @@ jobs:
 
   build:
     name: Build Archive
-    runs-on: macos-15.5
+    runs-on: macos-15 # Changed to valid runner
     needs: test
     if: github.ref == 'refs/heads/main'
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    - name: List Xcode installations
+      run: ls -l /Applications | grep Xcode
+      continue-on-error: true
+
     - name: Select Xcode version
-      run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-      
+      run: |
+        if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+        else
+          echo "Xcode 16.4 not found, falling back to default Xcode"
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+        fi
+      continue-on-error: true
+
     - name: Cache DerivedData
       uses: actions/cache@v4
       with:
         path: ~/Library/Developer/Xcode/DerivedData
-        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/project.pbxproj') }}
+        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }}
         restore-keys: |
           ${{ runner.os }}-derived-data-
-          
+
     - name: Build Archive
       run: |
         xcodebuild \
@@ -93,7 +115,7 @@ jobs:
           -archivePath ./build/SubTrackr.xcarchive \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           archive
-          
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
