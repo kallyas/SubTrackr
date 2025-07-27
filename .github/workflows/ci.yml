@@ -112,7 +112,8 @@ jobs:
           -destination 'generic/platform=iOS' \
           -archivePath ./build/SubTrackr.xcarchive \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
-          archive
+          archive \
+          -allowProvisioningUpdates
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
