@@ -46,7 +46,7 @@ jobs:
         xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,name=iPhone 15' \
+          -destination 'platform=iOS Simulator,id=6544B7FE-9FDB-494E-95C3-E32AB0A77385' \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           -enableCodeCoverage YES \
           clean test
