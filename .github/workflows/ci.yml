@@ -9,24 +9,23 @@ on:
 jobs:
   test:
     name: Test
-    runs-on: macos-15 # Changed to macos-15 for latest environment; use macos-14 if preferred
+    runs-on: macos-15
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: List Xcode installations
       run: ls -l /Applications | grep Xcode
-      continue-on-error: true # Continue even if listing fails
+      continue-on-error: true
 
     - name: Select Xcode version
       run: |
         if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
           sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
         else
-          echo "Xcode 16.4 not found, falling back to default Xcode"
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
         fi
-      continue-on-error: true # Continue to allow debugging if selection fails
+      continue-on-error: true
 
     - name: Show Xcode version
       run: xcodebuild -version
@@ -38,7 +37,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/Library/Developer/Xcode/DerivedData
-        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }} # Broader hash
+        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }}
         restore-keys: |
           ${{ runner.os }}-derived-data-
 
@@ -47,7 +46,7 @@ jobs:
         xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,name=iPhone 15' \ 
+          -destination 'platform=iOS Simulator,name=iPhone 15' \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           -enableCodeCoverage YES \
           clean test
@@ -58,16 +57,16 @@ jobs:
       with:
         name: test-results
         path: ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
-        retention-days: 30 # Consistent retention period
+        retention-days: 30
 
     - name: Generate code coverage report
-      if: always() # Run even if tests fail for debugging
+      if: always()
       run: |
         xcrun xccov view --report --json ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult > coverage.json
-      continue-on-error: true # Allow workflow to continue if coverage generation fails
+      continue-on-error: true
 
     - name: Upload coverage to Codecov
-      if: always() # Run even if tests fail
+      if: always()
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.json
@@ -77,7 +76,7 @@ jobs:
 
   build:
     name: Build Archive
-    runs-on: macos-15 # Changed to valid runner
+    runs-on: macos-15
     needs: test
     if: github.ref == 'refs/heads/main'
     steps:
@@ -93,7 +92,6 @@ jobs:
         if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
           sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
         else
-          echo "Xcode 16.4 not found, falling back to default Xcode"
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
         fi
       continue-on-error: true
