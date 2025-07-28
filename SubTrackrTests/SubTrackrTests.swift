@@ -193,40 +193,53 @@ struct CurrencyExchangeServiceTests {
     }
 }
 
-struct SubscriptionViewModelTests {
-    
-    @Test func testInitialState() async {
-        let viewModel = SubscriptionViewModel()
-        
-        // Wait a brief moment for publishers to initialize
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        
-        #expect(viewModel.searchText.isEmpty)
-        #expect(viewModel.selectedCategory == nil)
-        #expect(viewModel.showingAddSubscription == false)
-        #expect(viewModel.editingSubscription == nil)
-        // Don't test subscriptions or filteredSubscriptions as they may be populated by CloudKit
+import XCTest
+@testable import SubTrackr
+
+class SubscriptionViewModelTests: XCTestCase {
+
+    var viewModel: SubscriptionViewModel!
+
+    override func setUp() {
+        super.setUp()
+        viewModel = SubscriptionViewModel()
     }
-    
-    @Test func testMonthlyTotalCalculation() async {
-        let viewModel = SubscriptionViewModel()
-        
-        // Wait for initialization
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        
-        // Monthly total should be a valid number (could be 0 or have data from CloudKit)
-        #expect(viewModel.monthlyTotal >= 0.0)
+
+    override func tearDown() {
+        viewModel = nil
+        super.tearDown()
     }
-    
-    @Test func testClearFilters() {
-        let viewModel = SubscriptionViewModel()
+
+    func testMonthlyTotal() {
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        viewModel.subscriptions = [subscription1, subscription2]
+        XCTAssertEqual(viewModel.monthlyTotal, 25.0, "Monthly total should be the sum of all monthly subscription costs.")
+    }
+
+    func testCategoryTotals() {
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription3 = Subscription(name: "Gym", cost: 30.0, billingCycle: .monthly, startDate: Date(), category: .fitness)
+        viewModel.subscriptions = [subscription1, subscription2, subscription3]
+        let categoryTotals = viewModel.categoryTotals
+        XCTAssertEqual(categoryTotals[.streaming], 25.0, "Streaming category total should be correct.")
+        XCTAssertEqual(categoryTotals[.fitness], 30.0, "Fitness category total should be correct.")
+    }
+
+    func testUpcomingRenewals() {
+        let today = Date()
+        let upcomingDate = Calendar.current.date(byAdding: .day, value: 3, to: today)!
+        let farFutureDate = Calendar.current.date(byAdding: .day, value: 10, to: today)!
         
-        viewModel.searchText = "Netflix"
-        viewModel.selectedCategory = .streaming
+        let upcomingSubscription = Subscription(name: "Upcoming", cost: 10.0, billingCycle: .monthly, startDate: upcomingDate, category: .other)
+        let farFutureSubscription = Subscription(name: "Far Future", cost: 20.0, billingCycle: .monthly, startDate: farFutureDate, category: .other)
         
-        viewModel.clearFilters()
+        viewModel.subscriptions = [upcomingSubscription, farFutureSubscription]
         
-        #expect(viewModel.searchText.isEmpty)
-        #expect(viewModel.selectedCategory == nil)
+        let upcomingRenewals = viewModel.getUpcomingRenewals()
+        
+        XCTAssertEqual(upcomingRenewals.count, 1, "There should be one upcoming renewal.")
+        XCTAssertEqual(upcomingRenewals.first?.name, "Upcoming", "The upcoming renewal should be the correct one.")
     }
 }
