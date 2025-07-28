@@ -66,38 +66,12 @@ struct WidgetData: Codable {
         formatter.currencyCode = userCurrencyCode
         return formatter.string(from: NSNumber(value: monthlyTotal)) ?? "\(monthlyTotal)"
     }
-}
-
-class WidgetDataManager {
-    static let shared = WidgetDataManager()
-    private let appGroupId = "group.com.iden.SubTrackr"
-    private let dataKey = "widgetData"
     
-    private init() {}
-    
-    private var userDefaults: UserDefaults? {
-        return UserDefaults(suiteName: appGroupId)
+    static var empty: WidgetData {
+        WidgetData(subscriptions: [], monthlyTotal: 0, userCurrencyCode: "USD", lastUpdated: Date())
     }
     
-    func saveWidgetData(_ data: WidgetData) {
-        guard let encoder = try? JSONEncoder().encode(data),
-              let userDefaults = userDefaults else { return }
-        
-        userDefaults.set(encoder, forKey: dataKey)
-        userDefaults.synchronize()
-    }
-    
-    func loadWidgetData() -> WidgetData? {
-        guard let userDefaults = userDefaults,
-              let data = userDefaults.data(forKey: dataKey),
-              let widgetData = try? JSONDecoder().decode(WidgetData.self, from: data) else {
-            return getSampleData()
-        }
-        
-        return widgetData
-    }
-    
-    func getSampleData() -> WidgetData {
+    static var previewData: WidgetData {
         let sampleSubscriptions = [
             WidgetSubscription(
                 id: "1",
@@ -143,18 +117,48 @@ class WidgetDataManager {
     }
 }
 
+class WidgetDataManager {
+    static let shared = WidgetDataManager()
+    private let appGroupId = "group.com.iden.SubTrackr"
+    private let dataKey = "widgetData"
+    
+    private init() {}
+    
+    private var userDefaults: UserDefaults? {
+        return UserDefaults(suiteName: appGroupId)
+    }
+    
+    func saveWidgetData(_ data: WidgetData) {
+        guard let encoder = try? JSONEncoder().encode(data),
+              let userDefaults = userDefaults else { return }
+        
+        userDefaults.set(encoder, forKey: dataKey)
+        userDefaults.synchronize()
+    }
+    
+    func loadWidgetData() -> WidgetData? {
+        guard let userDefaults = userDefaults,
+              let data = userDefaults.data(forKey: dataKey),
+              let widgetData = try? JSONDecoder().decode(WidgetData.self, from: data) else {
+            return nil
+        }
+        
+        return widgetData
+    }
+}
+
 struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> SubTrackrEntry {
-        SubTrackrEntry(date: Date(), configuration: ConfigurationAppIntent(), widgetData: WidgetDataManager.shared.getSampleData())
+        SubTrackrEntry(date: Date(), configuration: ConfigurationAppIntent(), widgetData: .previewData)
     }
 
     func snapshot(for configuration: ConfigurationAppIntent, in context: Context) async -> SubTrackrEntry {
-        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? WidgetDataManager.shared.getSampleData()
+        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? .empty
         return SubTrackrEntry(date: Date(), configuration: configuration, widgetData: widgetData)
     }
     
     func timeline(for configuration: ConfigurationAppIntent, in context: Context) async -> Timeline<SubTrackrEntry> {
-        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? WidgetDataManager.shared.getSampleData()
+        let widgetData = WidgetDataManager.shared.loadWidgetData() ?? .empty
         
         // Create entries for the next 4 hours to keep widget updated
         var entries: [SubTrackrEntry] = []
@@ -209,19 +213,34 @@ struct SmallWidgetView: View {
                 Spacer()
             }
             
-            switch entry.configuration.widgetType {
-            case .summary:
-                summaryView
-            case .upcomingRenewals:
-                upcomingRenewalsView
-            case .totalSpending:
-                totalSpendingView
+            if entry.widgetData.subscriptions.isEmpty {
+                emptyView
+            } else {
+                switch entry.configuration.widgetType {
+                case .summary:
+                    summaryView
+                case .upcomingRenewals:
+                    upcomingRenewalsView
+                case .totalSpending:
+                    totalSpendingView
+                }
             }
             
             Spacer()
         }
         .padding(12)
         .containerBackground(.fill.tertiary, for: .widget)
+    }
+    
+    private var emptyView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("No Subscriptions")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            Text("Add subscriptions in the app.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
     }
     
     private var summaryView: some View {
@@ -291,6 +310,33 @@ struct MediumWidgetView: View {
     let entry: SubTrackrEntry
     
     var body: some View {
+        VStack {
+            if entry.widgetData.subscriptions.isEmpty {
+                emptyView
+            } else {
+                contentView
+            }
+        }
+        .padding(16)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+    
+    private var emptyView: some View {
+        VStack(alignment: .center, spacing: 8) {
+            Image(systemName: "list.bullet.clipboard")
+                .font(.largeTitle)
+                .foregroundColor(.secondary)
+            Text("No Subscriptions Yet")
+                .font(.headline)
+                .fontWeight(.semibold)
+            Text("Open SubTrackr to add your first subscription and see it here.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    private var contentView: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
@@ -355,8 +401,6 @@ struct MediumWidgetView: View {
                 }
             }
         }
-        .padding(16)
-        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
@@ -364,6 +408,34 @@ struct LargeWidgetView: View {
     let entry: SubTrackrEntry
     
     var body: some View {
+        VStack {
+            if entry.widgetData.subscriptions.isEmpty {
+                emptyView
+            } else {
+                contentView
+            }
+        }
+        .padding(16)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+    
+    private var emptyView: some View {
+        VStack(alignment: .center, spacing: 12) {
+            Image(systemName: "list.bullet.clipboard.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.secondary)
+            Text("Track Your Subscriptions")
+                .font(.title2)
+                .fontWeight(.bold)
+            Text("Open the SubTrackr app to add your subscriptions. Your widget will automatically update to show your upcoming renewals and monthly spending.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+    }
+    
+    private var contentView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "creditcard.fill")
@@ -455,8 +527,6 @@ struct LargeWidgetView: View {
             
             Spacer()
         }
-        .padding(16)
-        .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
@@ -497,18 +567,18 @@ extension ConfigurationAppIntent {
 #Preview(as: .systemSmall) {
     SubTrackrWidget()
 } timeline: {
-    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
-    SubTrackrEntry(date: .now, configuration: .upcomingRenewals, widgetData: WidgetDataManager.shared.getSampleData())
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetData.previewData)
+    SubTrackrEntry(date: .now, configuration: .upcomingRenewals, widgetData: WidgetData.previewData)
 }
 
 #Preview(as: .systemMedium) {
     SubTrackrWidget()
 } timeline: {
-    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetData.previewData)
 }
 
 #Preview(as: .systemLarge) {
     SubTrackrWidget()
 } timeline: {
-    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetDataManager.shared.getSampleData())
+    SubTrackrEntry(date: .now, configuration: .summary, widgetData: WidgetData.previewData)
 }
