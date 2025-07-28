@@ -128,28 +128,10 @@ class SubscriptionViewModel: ObservableObject {
     }
     
     private func updateWidgetData() {
-        let widgetSubscriptions = subscriptions.map { subscription in
-            WidgetSubscription(
-                id: subscription.id,
-                name: subscription.name,
-                cost: subscription.cost,
-                currencyCode: subscription.currency.code,
-                billingCycle: subscription.billingCycle.rawValue,
-                nextBillingDate: subscription.nextBillingDate,
-                category: subscription.category.rawValue,
-                iconName: subscription.iconName,
-                isActive: subscription.isActive
-            )
-        }
-        
-        let widgetData = WidgetData(
-            subscriptions: widgetSubscriptions,
+        WidgetDataManager.shared.saveWidgetData(
+            subscriptions: subscriptions,
             monthlyTotal: monthlyTotal,
-            userCurrencyCode: currencyManager.selectedCurrency.code,
-            lastUpdated: Date()
+            userCurrencyCode: currencyManager.selectedCurrency.code
         )
-        
-        WidgetDataManager.shared.saveWidgetData(widgetData)
-        WidgetCenter.shared.reloadAllTimelines()
     }
 }
