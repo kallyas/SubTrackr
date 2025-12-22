@@ -36,18 +36,23 @@ jobs:
     - name: Cache DerivedData
       uses: actions/cache@v4
       with:
-        path: ~/Library/Developer/Xcode/DerivedData
+        path: "~/Library/Developer/Xcode/DerivedData"
         key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }}
         restore-keys: |
           ${{ runner.os }}-derived-data-
 
+    - name: Boot Simulator
+      run: |
+        xcrun simctl boot "iPhone 16 Pro Max" || true
+      continue-on-error: true
+
     - name: Build and Test
       run: |
-        xcodebuild \
+        xcodebuild -verbose \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,id=6544B7FE-9FDB-494E-95C3-E32AB0A77385' \
-          -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
+          -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max,OS=18.0' \
+          -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData" \
           -enableCodeCoverage YES \
           clean test
 
@@ -56,13 +61,18 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+        path: "~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult"
         retention-days: 30
 
     - name: Generate code coverage report
       if: always()
       run: |
-        xcrun xccov view --report --json ~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult > coverage.json
+        XCRESULT=$(find ~/Library/Developer/Xcode/DerivedData -name "*.xcresult" -type d | head -n 1)
+        if [ -n "$XCRESULT" ]; then
+          xcrun xccov view --report --json "$XCRESULT" > coverage.json
+        else
+          echo "No .xcresult file found"
+        fi
       continue-on-error: true
 
     - name: Upload coverage to Codecov
@@ -73,51 +83,3 @@ jobs:
         flags: ios
         name: SubTrackr iOS Coverage
         fail_ci_if_error: false
-
-  build:
-    name: Build Archive
-    runs-on: macos-15
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: List Xcode installations
-      run: ls -l /Applications | grep Xcode
-      continue-on-error: true
-
-    - name: Select Xcode version
-      run: |
-        if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-        else
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-        fi
-      continue-on-error: true
-
-    - name: Cache DerivedData
-      uses: actions/cache@v4
-      with:
-        path: ~/Library/Developer/Xcode/DerivedData
-        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }}
-        restore-keys: |
-          ${{ runner.os }}-derived-data-
-
-    - name: Build Archive
-      run: |
-        xcodebuild \
-          -project SubTrackr.xcodeproj \
-          -scheme SubTrackr \
-          -destination 'generic/platform=iOS' \
-          -archivePath ./build/SubTrackr.xcarchive \
-          -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
-          archive \
-          -allowProvisioningUpdates
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: SubTrackr-Archive
-        path: ./build/SubTrackr.xcarchive
-        retention-days: 30
