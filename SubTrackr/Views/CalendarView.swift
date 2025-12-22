@@ -113,32 +113,44 @@ struct CalendarDayView: View {
     let day: CalendarDay
     let onTap: (Date) -> Void
     let onLongPress: (Date) -> Void
-    
-    
+
     var body: some View {
-        VStack(spacing: 2) {
-            if let _ = day.date, let dayNumber = day.day {
-                Text("\(dayNumber)")
-                    .font(.system(size: 16, weight: day.isToday ? .bold : .medium))
-                    .foregroundColor(day.isToday ? .white : .primary)
-                
-                subscriptionIcons
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 4) {
+                if let _ = day.date, let dayNumber = day.day {
+                    // Day number
+                    Text("\(dayNumber)")
+                        .font(.system(size: 16, weight: day.isToday ? .bold : .medium))
+                        .foregroundColor(day.isToday ? .white : .primary)
+
+                    Spacer()
+
+                    // Subscription indicators
+                    subscriptionIndicators
+                }
+            }
+            .frame(height: 70)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(day.isToday ? Color.accentColor : Color.gray.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        day.isToday ? Color.clear :
+                        (!day.subscriptions.isEmpty ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2)),
+                        lineWidth: day.isToday ? 0 : 1
+                    )
+            )
+
+            // Subscription count badge
+            if !day.subscriptions.isEmpty {
+                subscriptionBadge
+                    .offset(x: -4, y: 4)
             }
         }
-        .frame(height: 70)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(day.isToday ? Color.accentColor : Color.gray.opacity(0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(
-                    day.isToday ? Color.clear : 
-                    (!day.subscriptions.isEmpty ? Color.accentColor.opacity(0.3) : Color.gray.opacity(0.2)), 
-                    lineWidth: day.isToday ? 0 : 1
-                )
-        )
         .contentShape(Rectangle())
         .onTapGesture {
             if let date = day.date {
@@ -153,18 +165,47 @@ struct CalendarDayView: View {
             }
         }
     }
-    
-    private var subscriptionIcons: some View {
-        HStack(spacing: 1) {
-            ForEach(Array(day.subscriptions.prefix(3)), id: \.id) { subscription in
-                AnimatedIconView(subscription: subscription)
+
+    // Badge showing subscription count
+    private var subscriptionBadge: some View {
+        Text("\(day.subscriptions.count)")
+            .font(.system(size: 10, weight: .bold))
+            .foregroundColor(.white)
+            .frame(minWidth: 18, minHeight: 18)
+            .background(
+                Circle()
+                    .fill(badgeColor)
+            )
+            .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
+    }
+
+    // Color based on subscription count
+    private var badgeColor: Color {
+        switch day.subscriptions.count {
+        case 1:
+            return .green
+        case 2:
+            return .orange
+        case 3...5:
+            return .red
+        default:
+            return .purple
+        }
+    }
+
+    // Visual indicators showing category colors
+    private var subscriptionIndicators: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(day.subscriptions.prefix(4)), id: \.id) { subscription in
+                Circle()
+                    .fill(subscription.category.color)
+                    .frame(width: 6, height: 6)
             }
-            
-            if day.subscriptions.count > 3 {
-                Text("+\(day.subscriptions.count - 3)")
-                    .font(.system(size: 6))
-                    .foregroundColor(.secondary)
-                    .fontWeight(.medium)
+
+            if day.subscriptions.count > 4 {
+                Circle()
+                    .fill(Color.gray.opacity(0.5))
+                    .frame(width: 6, height: 6)
             }
         }
     }
