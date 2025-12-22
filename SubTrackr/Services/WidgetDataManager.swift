@@ -8,29 +8,7 @@
 import Foundation
 import SwiftUI
 import WidgetKit
-
-// Note: This struct is shared with the widget. 
-// Consider moving it to a shared framework or file.
-struct WidgetSubscription: Codable, Identifiable {
-    let id: String
-    let name: String
-    let cost: Double
-    let currencyCode: String
-    let billingCycle: String
-    let nextBillingDate: Date
-    let category: String
-    let iconName: String
-    let isActive: Bool
-}
-
-// Note: This struct is shared with the widget. 
-// Consider moving it to a shared framework or file.
-struct WidgetData: Codable {
-    let subscriptions: [WidgetSubscription]
-    let monthlyTotal: Double
-    let userCurrencyCode: String
-    let lastUpdated: Date
-}
+import WidgetShared
 
 class WidgetDataManager {
     static let shared = WidgetDataManager()
