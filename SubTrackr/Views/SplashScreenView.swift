@@ -1,122 +1,130 @@
 import SwiftUI
 
 struct SplashScreenView: View {
-    @State private var logoScale: CGFloat = 0.5
+    @State private var logoScale: CGFloat = 0.8
     @State private var logoOpacity: Double = 0
     @State private var textOpacity: Double = 0
-    @State private var backgroundGradientOpacity: Double = 0
-    @State private var pulseAnimation: Bool = false
-    @State private var rotationAngle: Double = 0
-    @State private var showParticles: Bool = false
-    
+    @State private var iconScale: CGFloat = 0.5
+    @State private var iconRotation: Double = -5
+    @State private var shimmerOffset: CGFloat = -200
+
     var onAnimationComplete: () -> Void
-    
+
     var body: some View {
         ZStack {
-            // Animated background gradient
-            RadialGradient(
+            // Clean gradient background
+            LinearGradient(
                 colors: [
-                    Color.blue.opacity(0.3),
-                    Color.purple.opacity(0.2),
-                    Color.black
+                    DesignSystem.Colors.background,
+                    DesignSystem.Colors.secondaryBackground
                 ],
-                center: .center,
-                startRadius: 100,
-                endRadius: 400
+                startPoint: .top,
+                endPoint: .bottom
             )
-            .opacity(backgroundGradientOpacity)
             .ignoresSafeArea()
-            
-            // Particle effect background
-            if showParticles {
-                ParticleSystemView()
-                    .ignoresSafeArea()
-            }
-            
-            VStack(spacing: 24) {
-                // Main logo container
+
+            VStack(spacing: DesignSystem.Spacing.xxl) {
+                // App Icon Container
                 ZStack {
-                    // Outer glow ring
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [Color.blue, Color.purple, Color.pink],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 4
-                        )
-                        .frame(width: 120, height: 120)
-                        .scaleEffect(pulseAnimation ? 1.1 : 1.0)
-                        .opacity(logoOpacity)
-                    
-                    // Inner circle background
+                    // Subtle glow effect
                     Circle()
                         .fill(
+                            RadialGradient(
+                                colors: [
+                                    DesignSystem.Colors.accent.opacity(0.15),
+                                    DesignSystem.Colors.accent.opacity(0.0)
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 80
+                            )
+                        )
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 20)
+                        .opacity(logoOpacity)
+
+                    // App Icon
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.hero, style: .continuous)
+                        .fill(
                             LinearGradient(
-                                colors: [Color.blue.opacity(0.8), Color.purple.opacity(0.6)],
+                                colors: [
+                                    DesignSystem.Colors.accent,
+                                    DesignSystem.Colors.accent.opacity(0.8)
+                                ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 100, height: 100)
-                        .opacity(logoOpacity)
-                    
-                    // App icon/logo
-                    ZStack {
-                        // Background circle for icon
-                        Circle()
-                            .fill(Color.white.opacity(0.1))
-                            .frame(width: 80, height: 80)
-                        
-                        // Subscription tracking icon
-                        VStack(spacing: 2) {
-                            // Credit card icon
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.white)
-                                .frame(width: 32, height: 20)
-                                .overlay(
-                                    HStack(spacing: 2) {
-                                        Circle()
-                                            .fill(Color.blue)
-                                            .frame(width: 4, height: 4)
-                                        Circle()
-                                            .fill(Color.purple)
-                                            .frame(width: 4, height: 4)
-                                        Circle()
-                                            .fill(Color.pink)
-                                            .frame(width: 4, height: 4)
+                        .overlay(
+                            // Inner icon content
+                            VStack(spacing: DesignSystem.Spacing.xs) {
+                                // Stylized subscription icon
+                                ZStack {
+                                    // Card background
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(.white.opacity(0.95))
+                                        .frame(width: 44, height: 28)
+
+                                    VStack(spacing: 2) {
+                                        // Card chip circles
+                                        HStack(spacing: 3) {
+                                            Circle()
+                                                .fill(DesignSystem.Colors.accent.opacity(0.4))
+                                                .frame(width: 4, height: 4)
+                                            Circle()
+                                                .fill(DesignSystem.Colors.accent.opacity(0.4))
+                                                .frame(width: 4, height: 4)
+                                            Circle()
+                                                .fill(DesignSystem.Colors.accent.opacity(0.4))
+                                                .frame(width: 4, height: 4)
+                                        }
+                                        .offset(y: -2)
                                     }
-                                    .offset(y: -2)
-                                )
-                            
-                            // Dollar sign
-                            Text("$")
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .scaleEffect(logoScale)
-                    .opacity(logoOpacity)
-                    .rotationEffect(.degrees(rotationAngle))
-                }
-                
-                // App name and tagline
-                VStack(spacing: 8) {
-                    Text("SubTrackr")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color.blue, Color.purple, Color.pink],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                                }
+                                .offset(y: -6)
+
+                                // Currency symbol
+                                Image(systemName: "dollarsign.circle.fill")
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .symbolRenderingMode(.hierarchical)
+                                    .offset(y: 8)
+                            }
                         )
+                        .overlay(
+                            // Shimmer effect
+                            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.hero, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            .clear,
+                                            .white.opacity(0.3),
+                                            .clear
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .offset(x: shimmerOffset)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.hero, style: .continuous))
+                        .softShadow()
+                        .scaleEffect(logoScale)
+                        .rotationEffect(.degrees(iconRotation))
+                        .opacity(logoOpacity)
+                }
+
+                // App Name
+                VStack(spacing: DesignSystem.Spacing.xs) {
+                    Text("SubTrackr")
+                        .font(DesignSystem.Typography.displayMedium)
+                        .foregroundStyle(DesignSystem.Colors.label)
                         .opacity(textOpacity)
-                    
+
                     Text("Track Your Subscriptions")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
+                        .font(DesignSystem.Typography.subheadline)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                         .opacity(textOpacity)
                 }
             }
@@ -125,108 +133,35 @@ struct SplashScreenView: View {
             startAnimationSequence()
         }
     }
-    
+
     private func startAnimationSequence() {
-        // Stage 1: Background fade in
-        withAnimation(.easeOut(duration: 0.5)) {
-            backgroundGradientOpacity = 1.0
+        // Logo entrance with spring animation
+        withAnimation(DesignSystem.Animation.springSmooth.delay(0.1)) {
+            logoScale = 1.0
+            logoOpacity = 1.0
+            iconRotation = 0
         }
-        
-        // Stage 2: Logo scale and fade in
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
-                logoScale = 1.0
-                logoOpacity = 1.0
+
+        // Text fade in
+        withAnimation(DesignSystem.Animation.gentle.delay(0.4)) {
+            textOpacity = 1.0
+        }
+
+        // Shimmer effect
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            withAnimation(.linear(duration: 0.8)) {
+                shimmerOffset = 300
             }
         }
-        
-        // Stage 3: Logo rotation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeInOut(duration: 1.0)) {
-                rotationAngle = 360
-            }
-        }
-        
-        // Stage 4: Pulse animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                pulseAnimation = true
-            }
-        }
-        
-        // Stage 5: Text fade in
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.easeOut(duration: 0.8)) {
-                textOpacity = 1.0
-            }
-        }
-        
-        // Stage 6: Particle effect
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            showParticles = true
-        }
-        
-        // Stage 7: Complete animation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-            withAnimation(.easeInOut(duration: 0.5)) {
+
+        // Complete and transition
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            DesignSystem.Haptics.light()
+            withAnimation(DesignSystem.Animation.standard) {
                 onAnimationComplete()
             }
         }
     }
-}
-
-struct ParticleSystemView: View {
-    @State private var particles: [Particle] = []
-    
-    var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle()
-                    .fill(particle.color)
-                    .frame(width: particle.size, height: particle.size)
-                    .position(particle.position)
-                    .opacity(particle.opacity)
-            }
-        }
-        .onAppear {
-            generateParticles()
-            animateParticles()
-        }
-    }
-    
-    private func generateParticles() {
-        particles = (0..<20).map { _ in
-            Particle(
-                position: CGPoint(
-                    x: CGFloat.random(in: 0...UIScreen.main.bounds.width),
-                    y: CGFloat.random(in: 0...UIScreen.main.bounds.height)
-                ),
-                color: [Color.blue, Color.purple, Color.pink, Color.white].randomElement() ?? Color.blue,
-                size: CGFloat.random(in: 2...6),
-                opacity: Double.random(in: 0.3...0.8)
-            )
-        }
-    }
-    
-    private func animateParticles() {
-        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            for i in particles.indices {
-                withAnimation(.linear(duration: 2.0)) {
-                    particles[i].position.x += CGFloat.random(in: -2...2)
-                    particles[i].position.y += CGFloat.random(in: -2...2)
-                    particles[i].opacity = Double.random(in: 0.1...0.9)
-                }
-            }
-        }
-    }
-}
-
-struct Particle: Identifiable {
-    let id = UUID()
-    var position: CGPoint
-    let color: Color
-    let size: CGFloat
-    var opacity: Double
 }
 
 #Preview {
