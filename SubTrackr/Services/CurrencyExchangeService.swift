@@ -90,7 +90,6 @@ class CurrencyExchangeService: ObservableObject {
                         } else {
                             self?.error = .networkError(error.localizedDescription)
                         }
-                        print("Exchange rate fetch failed: \(error.localizedDescription)")
                     }
                 },
                 receiveValue: { [weak self] response in
@@ -98,7 +97,6 @@ class CurrencyExchangeService: ObservableObject {
                     self?.lastUpdated = Date()
                     self?.isStale = false
                     self?.cacheRates()
-                    print("Exchange rates updated successfully")
                 }
             )
             .store(in: &cancellables)
@@ -160,7 +158,6 @@ class CurrencyExchangeService: ObservableObject {
         // Don't use cache if it's older than 24 hours
         guard age < maxCacheAge else {
             isStale = true
-            print("Cached exchange rates are too old (\(Int(age/3600)) hours), fetching fresh data")
             return
         }
 
@@ -169,7 +166,6 @@ class CurrencyExchangeService: ObservableObject {
             exchangeRates = rates
             lastUpdated = timestamp
             isStale = age > staleDataWarningInterval
-            print("Loaded cached exchange rates (age: \(Int(age/60)) minutes)")
         }
     }
 
