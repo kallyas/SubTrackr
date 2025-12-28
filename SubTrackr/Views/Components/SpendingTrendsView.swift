@@ -40,8 +40,8 @@ struct SpendingTrendsView: View {
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
-                .fill(Material.regularMaterial)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .fill(DesignSystem.Colors.secondaryBackground)
         )
     }
 
@@ -68,7 +68,7 @@ struct SpendingTrendsView: View {
                 Image(systemName: "chevron.down")
                     .font(.caption)
             }
-            .foregroundColor(DesignSystem.Colors.primary)
+            .foregroundColor(DesignSystem.Colors.accent)
         }
     }
 
@@ -85,8 +85,8 @@ struct SpendingTrendsView: View {
 
                 // Line chart
                 lineChart(in: geometry.size)
-                    .stroke(DesignSystem.Colors.primary, lineWidth: 2.5)
-                    .shadow(color: DesignSystem.Colors.primary.opacity(0.3), radius: 4, x: 0, y: 2)
+                    .stroke(DesignSystem.Colors.accent, lineWidth: 2.5)
+                    .shadow(color: DesignSystem.Colors.accent.opacity(0.3), radius: 4, x: 0, y: 2)
 
                 // Data points
                 dataPoints(in: geometry.size)
@@ -96,8 +96,8 @@ struct SpendingTrendsView: View {
                     .fill(
                         LinearGradient(
                             colors: [
-                                DesignSystem.Colors.primary.opacity(0.3),
-                                DesignSystem.Colors.primary.opacity(0.05)
+                                DesignSystem.Colors.accent.opacity(0.3),
+                                DesignSystem.Colors.accent.opacity(0.05)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -116,7 +116,7 @@ struct SpendingTrendsView: View {
                 path.addLine(to: CGPoint(x: size.width, y: y))
             }
         }
-        .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+        .stroke(DesignSystem.Colors.separator.opacity(0.3), lineWidth: 0.5)
     }
 
     private func lineChart(in size: CGSize) -> Path {
@@ -153,9 +153,9 @@ struct SpendingTrendsView: View {
                     let y = size.height - (normalizedValue * size.height)
 
                     Circle()
-                        .fill(DesignSystem.Colors.primary)
+                        .fill(DesignSystem.Colors.accent)
                         .frame(width: 6, height: 6)
-                        .shadow(color: DesignSystem.Colors.primary.opacity(0.5), radius: 3, x: 0, y: 1)
+                        .shadow(color: DesignSystem.Colors.accent.opacity(0.5), radius: 3, x: 0, y: 1)
                         .position(x: x, y: y)
                 }
             }
@@ -197,7 +197,7 @@ struct SpendingTrendsView: View {
                 title: "Average",
                 value: averageSpending,
                 icon: "chart.bar.fill",
-                color: .blue
+                color: DesignSystem.Colors.info
             )
 
             Divider()
@@ -207,7 +207,7 @@ struct SpendingTrendsView: View {
                 title: "Highest",
                 value: highestSpending,
                 icon: "arrow.up.circle.fill",
-                color: .red
+                color: DesignSystem.Colors.error
             )
 
             Divider()
@@ -237,7 +237,7 @@ struct SpendingTrendsView: View {
                     .foregroundColor(color)
                 Text(title)
                     .font(DesignSystem.Typography.caption1)
-                    .foregroundColor(DesignSystem.Colors.secondaryText)
+                    .foregroundColor(DesignSystem.Colors.secondaryLabel)
             }
 
             if isPercentage {
@@ -255,15 +255,15 @@ struct SpendingTrendsView: View {
         VStack(spacing: DesignSystem.Spacing.md) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 40))
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(DesignSystem.Colors.secondaryLabel)
 
             Text("Not enough data")
                 .font(DesignSystem.Typography.subheadline)
-                .foregroundColor(DesignSystem.Colors.secondaryText)
+                .foregroundColor(DesignSystem.Colors.secondaryLabel)
 
             Text("Add subscriptions to see spending trends")
                 .font(DesignSystem.Typography.caption1)
-                .foregroundColor(DesignSystem.Colors.tertiaryText)
+                .foregroundColor(DesignSystem.Colors.tertiaryLabel)
                 .multilineTextAlignment(.center)
         }
         .frame(height: 200)
@@ -305,11 +305,11 @@ struct SpendingTrendsView: View {
 
     private var trendColor: Color {
         if trendPercentage > 5 {
-            return .red
+            return DesignSystem.Colors.error
         } else if trendPercentage < -5 {
-            return .green
+            return DesignSystem.Colors.success
         } else {
-            return .orange
+            return DesignSystem.Colors.warning
         }
     }
 }
