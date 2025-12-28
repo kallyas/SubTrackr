@@ -1,6 +1,6 @@
 # SubTrackr
 
-A comprehensive subscription tracking app for iOS that helps you manage and monitor all your recurring subscriptions with CloudKit sync and comprehensive currency support.
+A modern, native iOS subscription tracking app that helps you manage and monitor all your recurring subscriptions with CloudKit sync, iOS widgets, and comprehensive currency support.
 
 ## Features
 
@@ -8,8 +8,16 @@ A comprehensive subscription tracking app for iOS that helps you manage and moni
 - **Subscription Management**: Add, edit, and delete recurring subscriptions
 - **Multiple Billing Cycles**: Support for weekly, monthly, quarterly, semi-annual, and annual billing
 - **Cost Tracking**: Monitor monthly costs and total spending across all subscriptions
-- **Calendar Integration**: Visual calendar view showing subscription billing dates
-- **Category Organization**: Organize subscriptions by categories (Streaming, Software, Fitness, etc.)
+- **iOS Native Calendar**: Swipe-based calendar view matching Apple Calendar design
+  - Swipe up/down to navigate months
+  - Tiny colored dots for subscription events
+  - Red circle for today's date
+  - Month preview while swiping
+- **Category Organization**: Organize subscriptions by categories (Streaming, Software, Fitness, Gaming, etc.)
+- **Home Widgets**: Track subscriptions directly from your home screen
+  - Small widget: Monthly total or next renewal
+  - Medium widget: Overview with upcoming renewals
+  - Large widget: Detailed subscription list
 
 ### 🌍 Global Currency Support
 SubTrackr supports **120+ currencies** from around the world, including:
@@ -43,12 +51,20 @@ SubTrackr supports **120+ currencies** from around the world, including:
 
 ### Services
 - **CloudKitService**: Manages CloudKit operations and sync
-- **CurrencyExchangeService**: Handles currency conversion and exchange rates
+- **CurrencyExchangeService**: Handles currency conversion and exchange rates with caching
 - **CurrencyManager**: App-wide currency management
+- **WidgetDataManager**: Manages widget data sharing via App Groups
+- **NotificationManager**: Handles subscription reminder notifications
 
 ### ViewModels
 - **SubscriptionViewModel**: Manages subscription state and operations
 - **CalendarViewModel**: Handles calendar view and date calculations
+
+### Widget Extension
+- **WidgetShared Framework**: Shared data types between app and widget
+- **Provider**: Timeline provider for widget updates
+- **Multiple Widget Sizes**: Small, Medium, and Large layouts
+- **App Group Integration**: Shares data via `group.com.iden.SubTrackr`
 
 ## Setup & Installation
 
@@ -60,18 +76,34 @@ SubTrackr supports **120+ currencies** from around the world, including:
 
 ### Configuration
 
-1. **CloudKit Setup**:
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/kallyas/SubTrackr.git
+   cd SubTrackr
+   ```
+
+2. **CloudKit Setup**:
    - The app automatically creates the required CloudKit schema on first run
    - Ensure your Apple Developer account has CloudKit enabled
    - Container ID: `iCloud.com.iden.SubTrackr`
 
-2. **Entitlements**:
+3. **App Groups Configuration** (Required for Widgets):
+   - Open the project in Xcode
+   - Select the **SubTrackr** target → Signing & Capabilities
+   - Ensure "App Groups" capability is enabled with `group.com.iden.SubTrackr`
+   - Select the **SubTrackrWidget** target → Signing & Capabilities
+   - Add "App Groups" capability with the same `group.com.iden.SubTrackr`
+   - Verify both targets have `SubTrackr.entitlements` and `SubTrackrWidget.entitlements` files
+
+4. **Entitlements**:
    - CloudKit capability enabled
+   - App Groups for widget data sharing
    - Background App Refresh for sync
 
-3. **Currency Exchange**:
-   - Exchange rates are fetched automatically
-   - Falls back to 1:1 conversion if rates unavailable
+5. **Currency Exchange**:
+   - Exchange rates are fetched automatically from public APIs
+   - Robust caching system with 24-hour expiry
+   - Falls back gracefully if rates are unavailable
 
 ## Usage
 
@@ -97,6 +129,19 @@ SubTrackr supports **120+ currencies** from around the world, including:
 - View costs in your preferred currency
 - Automatic conversion between currencies
 
+### Using Widgets
+1. Long press on your home screen
+2. Tap the "+" button to add a widget
+3. Search for "SubTrackr"
+4. Choose your preferred size (Small, Medium, or Large)
+5. Tap "Add Widget"
+6. Long press the widget to configure display options:
+   - **Summary**: Shows monthly total and active subscription count
+   - **Upcoming Renewals**: Displays next renewal with date and cost
+   - **Total Spending**: Focuses on monthly spending overview
+
+**Note**: Widgets automatically update when you add, edit, or delete subscriptions in the app.
+
 ## Architecture Details
 
 ### CloudKit Schema
@@ -119,6 +164,34 @@ The app uses a custom CloudKit record type `Subscription` with the following fie
 - Efficient data loading with pagination
 - Background sync to minimize UI blocking
 - Optimized currency conversion caching
+- Widget timeline updates every hour
+- Haptic feedback for enhanced user experience
+
+## Design System
+
+SubTrackr uses a comprehensive design system for consistency across the app:
+
+### DesignTokens
+- **Colors**: Semantic color system with light/dark mode support
+- **Typography**: Standardized text styles (title, headline, body, caption)
+- **Spacing**: Consistent spacing scale (xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24)
+- **Corner Radius**: Unified corner radius values (sm: 8, md: 12, lg: 16)
+- **Shadows**: Elevation system for depth
+
+### Components
+- **EmptyStateView**: Reusable empty state with icon, title, and message
+- **SpendingTrendsView**: Visual spending analytics
+- **Custom Calendar**: iOS-native calendar design with gesture support
+
+## Recent Improvements
+
+### Version 2.0 - iOS Native Design
+- Complete calendar redesign matching Apple Calendar
+- Swipe-based month navigation with spring animations
+- Widget support with three size options
+- Enhanced currency exchange with robust caching
+- Comprehensive design system implementation
+- Improved error handling and offline support
 
 ## Contributing
 
