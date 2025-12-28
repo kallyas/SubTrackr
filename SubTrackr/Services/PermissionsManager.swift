@@ -37,7 +37,6 @@ class PermissionsManager: ObservableObject {
             
             return granted
         } catch {
-            print("Failed to request notification permissions: \(error)")
             return false
         }
     }
@@ -49,10 +48,9 @@ class PermissionsManager: ObservableObject {
             DispatchQueue.main.async {
                 self?.iCloudStatus = status
             }
-            
-            if let error = error {
-                print("iCloud status error: \(error.localizedDescription)")
-            }
+
+            // Silently handle error
+            _ = error
         }
     }
     
@@ -143,9 +141,8 @@ class PermissionsManager: ObservableObject {
         )
         
         UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                print("Failed to schedule notification: \(error)")
-            }
+            // Silently handle error
+            _ = error
         }
     }
     
