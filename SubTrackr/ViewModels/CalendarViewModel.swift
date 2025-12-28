@@ -102,7 +102,35 @@ class CalendarViewModel: ObservableObject {
             currentDate = Date()
         }
     }
-    
+
+    /// Get calendar days for a specific month offset from current month
+    func getDaysForMonth(offset: Int) -> [CalendarDay] {
+        let calendar = Calendar.current
+        let targetDate = calendar.date(byAdding: .month, value: offset, to: currentDate) ?? currentDate
+        let startOfMonth = calendar.dateInterval(of: .month, for: targetDate)?.start ?? targetDate
+        let firstWeekday = calendar.component(.weekday, from: startOfMonth)
+        let daysInMonth = calendar.range(of: .day, in: .month, for: targetDate)?.count ?? 30
+        let targetMonth = calendar.component(.month, from: targetDate)
+        let targetYear = calendar.component(.year, from: targetDate)
+
+        var days: [CalendarDay] = []
+
+        // Add empty days for the beginning of the month
+        for _ in 1..<firstWeekday {
+            days.append(CalendarDay(date: nil, subscriptions: []))
+        }
+
+        // Add days of the month
+        for day in 1...daysInMonth {
+            if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                let subscriptions = cloudKitService.getSubscriptionsForDay(day, month: targetMonth, year: targetYear)
+                days.append(CalendarDay(date: date, subscriptions: subscriptions))
+            }
+        }
+
+        return days
+    }
+
     private func updateSelectedDaySubscriptions() {
         guard let selectedDate = selectedDate else {
             subscriptionsForSelectedDay = []
