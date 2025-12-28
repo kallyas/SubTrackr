@@ -35,20 +35,25 @@ class WidgetDataManager {
                 isActive: sub.isActive
             )
         }
-        
+
         let widgetData = WidgetData(
             subscriptions: widgetSubscriptions,
             monthlyTotal: monthlyTotal,
             userCurrencyCode: userCurrencyCode,
             lastUpdated: Date()
         )
-        
-        guard let encodedData = try? JSONEncoder().encode(widgetData), let userDefaults = userDefaults else {
+
+        guard let userDefaults = userDefaults else {
             return
         }
-        
+
+        guard let encodedData = try? JSONEncoder().encode(widgetData) else {
+            return
+        }
+
         userDefaults.set(encodedData, forKey: dataKey)
         userDefaults.synchronize()
+
         WidgetCenter.shared.reloadAllTimelines()
     }
     
