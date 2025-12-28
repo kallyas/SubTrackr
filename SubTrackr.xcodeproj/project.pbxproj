@@ -56,6 +56,7 @@
 		A1466BC12E339FF9002FAA07 /* SubTrackr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SubTrackr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1466BD22E339FFA002FAA07 /* SubTrackrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubTrackrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1466BDC2E339FFA002FAA07 /* SubTrackrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SubTrackrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A169C0DD2F013CA300FEBA98 /* SubTrackrWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SubTrackrWidgetExtension.entitlements; sourceTree = "<group>"; };
 		A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SubTrackrWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1C6DEEE2E33EA4D00E81A9E /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		A1C6DEF02E33EA4D00E81A9E /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -146,6 +147,7 @@
 		A1466BB82E339FF9002FAA07 = {
 			isa = PBXGroup;
 			children = (
+				A169C0DD2F013CA300FEBA98 /* SubTrackrWidgetExtension.entitlements */,
 				A1466BC32E339FF9002FAA07 /* SubTrackr */,
 				A1466BD52E339FFA002FAA07 /* SubTrackrTests */,
 				A1466BDF2E339FFA002FAA07 /* SubTrackrUITests */,
@@ -695,6 +697,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SubTrackrWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q6Q46HQ9H2;
@@ -724,6 +727,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = SubTrackrWidgetExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = Q6Q46HQ9H2;
