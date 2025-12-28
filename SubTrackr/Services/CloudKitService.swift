@@ -67,31 +67,27 @@ class CloudKitService: ObservableObject {
             DispatchQueue.main.async {
                 switch status {
                 case .available:
-                    print("iCloud account is available")
+                    break
                 case .noAccount:
-                    print("No iCloud account, using local sample data")
                     self?.useLocalData = true
                     self?.loadSampleData()
                 case .restricted:
-                    print("iCloud account restricted, using local sample data")
                     self?.useLocalData = true
                     self?.loadSampleData()
                 case .couldNotDetermine:
-                    print("Could not determine iCloud status, using local sample data")
                     self?.useLocalData = true
                     self?.loadSampleData()
                 case .temporarilyUnavailable:
-                    print("iCloud temporarily unavailable, using local sample data")
                     self?.useLocalData = true
                     self?.loadSampleData()
                 @unknown default:
-                    print("Unknown iCloud status, using local sample data")
                     self?.useLocalData = true
                     self?.loadSampleData()
                 }
-                
+
                 if let error = error {
-                    print("Account status error: \(error.localizedDescription)")
+                    // Silently handle error
+                    _ = error
                 }
             }
         }
@@ -116,17 +112,12 @@ class CloudKitService: ObservableObject {
         database.save(testRecord) { record, error in
             if let error = error as? CKError {
                 if error.code == .unknownItem {
-                    print("Creating CloudKit schema for Subscription record type...")
                     // The schema will be created automatically when we save the first record
                     // This is expected to fail the first time, but will create the schema
-                } else {
-                    print("CloudKit schema check error: \(error.localizedDescription)")
                 }
             } else if let record = record {
                 // Schema exists, delete the test record
-                self.database.delete(withRecordID: record.recordID) { _, _ in
-                    print("CloudKit schema verified and test record cleaned up")
-                }
+                self.database.delete(withRecordID: record.recordID) { _, _ in }
             }
         }
     }
@@ -145,9 +136,8 @@ class CloudKitService: ObservableObject {
         subscription.notificationInfo = notificationInfo
         
         database.save(subscription) { _, error in
-            if let error = error {
-                print("Failed to create subscription: \(error)")
-            }
+            // Silently handle subscription creation error
+            _ = error
         }
     }
     
@@ -192,8 +182,6 @@ class CloudKitService: ObservableObject {
 
         retryCount += 1
         let delay = pow(2.0, Double(retryCount)) // Exponential backoff: 2, 4, 8 seconds
-
-        print("Retrying fetch (attempt \(retryCount)/\(maxRetries)) in \(delay) seconds...")
 
         retryWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
