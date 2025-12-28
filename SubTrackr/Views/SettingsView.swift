@@ -12,42 +12,22 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             List {
-                Section {
-                    SettingsRow(
-                        icon: "lock.shield.fill",
-                        title: "Permissions",
-                        subtitle: "Manage app permissions",
-                        color: .blue
-                    ) {
-                        showingPermissions = true
-                    }
-                    
-                    SettingsRow(
-                        icon: "bell.fill",
-                        title: "Notifications",
-                        subtitle: permissionsManager.notificationStatusText,
-                        color: .orange
-                    ) {
-                        showingPermissions = true
-                    }
-                } header: {
-                    Text("Privacy & Permissions")
-                }
-                
+                // MARK: - Preferences
                 Section {
                     SettingsRow(
                         icon: "dollarsign.circle.fill",
                         title: "Currency",
                         subtitle: "\(currencyManager.selectedCurrency.name) (\(currencyManager.selectedCurrency.symbol))",
-                        color: .green
+                        color: DesignSystem.Colors.success
                     ) {
+                        DesignSystem.Haptics.light()
                         showingCurrencyPicker = true
                     }
                 } header: {
                     Text("Preferences")
                 }
 
-                // Sync Status Section
+                // MARK: - Sync Status
                 Section {
                     // CloudKit Sync Status
                     SyncStatusRow(
@@ -60,7 +40,7 @@ struct SettingsView: View {
 
                     // Exchange Rates Status
                     SyncStatusRow(
-                        icon: "arrow.2.circlepath",
+                        icon: "arrow.triangle.2.circlepath",
                         title: "Exchange Rates",
                         status: exchangeRateStatus,
                         statusColor: exchangeRateStatusColor,
@@ -69,19 +49,30 @@ struct SettingsView: View {
 
                     // Manual refresh button
                     Button {
-                        HapticManager.shared.lightImpact()
+                        DesignSystem.Haptics.medium()
                         CloudKitService.shared.fetchSubscriptions()
                         exchangeService.forceRefresh()
                     } label: {
-                        HStack {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .foregroundColor(.blue)
+                        HStack(spacing: DesignSystem.Spacing.md) {
+                            ZStack {
+                                Circle()
+                                    .fill(DesignSystem.Colors.accent.opacity(0.15))
+                                    .frame(width: 32, height: 32)
+
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(DesignSystem.Colors.accent)
+                                    .symbolRenderingMode(.hierarchical)
+                            }
+
                             Text("Refresh All Data")
-                                .foregroundColor(.primary)
+                                .font(DesignSystem.Typography.callout)
+                                .foregroundStyle(DesignSystem.Colors.label)
+
                             Spacer()
+
                             if cloudKitService.isLoading || exchangeService.isLoading {
                                 ProgressView()
-                                    .scaleEffect(0.8)
                             }
                         }
                     }
@@ -90,71 +81,107 @@ struct SettingsView: View {
                     Text("Sync Status")
                 } footer: {
                     if case .failed(let error) = cloudKitService.syncState {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(error.errorDescription ?? "Unknown error")
-                                .font(.caption)
-                                .foregroundColor(.red)
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                            Label {
+                                Text(error.errorDescription ?? "Unknown error")
+                                    .font(DesignSystem.Typography.caption1)
+                            } icon: {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(DesignSystem.Colors.error)
+                            }
+
                             Text(error.recoverySuggestion)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                                .font(DesignSystem.Typography.caption2)
+                                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                         }
                     } else if exchangeService.isStale {
-                        Text("⚠️ Exchange rate data is outdated. Refresh to get current rates.")
-                            .font(.caption)
-                            .foregroundColor(.orange)
+                        Label {
+                            Text("Exchange rate data is outdated. Tap refresh to update.")
+                                .font(DesignSystem.Typography.caption1)
+                        } icon: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(DesignSystem.Colors.warning)
+                        }
                     }
                 }
 
+                // MARK: - Privacy & Permissions
                 Section {
                     SettingsRow(
-                        icon: "icloud.fill",
-                        title: "iCloud Settings",
-                        subtitle: permissionsManager.iCloudStatusText,
-                        color: .blue
+                        icon: "hand.raised.fill",
+                        title: "Permissions",
+                        subtitle: "Manage app permissions",
+                        color: Color(red: 0.0, green: 0.48, blue: 1.0)
                     ) {
+                        DesignSystem.Haptics.light()
+                        showingPermissions = true
+                    }
+
+                    SettingsRow(
+                        icon: "bell.badge.fill",
+                        title: "Notifications",
+                        subtitle: permissionsManager.notificationStatusText,
+                        color: DesignSystem.Colors.error
+                    ) {
+                        DesignSystem.Haptics.light()
+                        showingPermissions = true
+                    }
+
+                    SettingsRow(
+                        icon: "icloud.fill",
+                        title: "iCloud",
+                        subtitle: permissionsManager.iCloudStatusText,
+                        color: Color(red: 0.0, green: 0.48, blue: 1.0)
+                    ) {
+                        DesignSystem.Haptics.light()
                         if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(settingsUrl)
                         }
                     }
                 } header: {
-                    Text("Data & Sync")
+                    Text("Privacy & Permissions")
                 }
-                
+
+                // MARK: - Support
                 Section {
                     SettingsRow(
                         icon: "info.circle.fill",
                         title: "About SubTrackr",
-                        subtitle: "Version 1.0",
-                        color: .gray
+                        subtitle: "Version 1.0.0",
+                        color: Color(UIColor.systemGray)
                     ) {
+                        DesignSystem.Haptics.light()
                         showingAbout = true
                     }
-                    
+
                     SettingsRow(
                         icon: "star.fill",
-                        title: "Rate App",
+                        title: "Rate on App Store",
                         subtitle: "Support development",
-                        color: .yellow
+                        color: Color(red: 1.0, green: 0.8, blue: 0.0)
                     ) {
+                        DesignSystem.Haptics.light()
                         if let url = URL(string: "https://apps.apple.com/app/id6738284937?action=write-review") {
                             UIApplication.shared.open(url)
                         }
                     }
-                    
+
                     SettingsRow(
                         icon: "envelope.fill",
                         title: "Contact Support",
-                        subtitle: "Get help",
-                        color: .blue
+                        subtitle: "support@subtrackr.app",
+                        color: Color(red: 0.0, green: 0.48, blue: 1.0)
                     ) {
+                        DesignSystem.Haptics.light()
                         if let url = URL(string: "mailto:support@subtrackr.app?subject=SubTrackr%20Support") {
                             UIApplication.shared.open(url)
                         }
                     }
                 } header: {
-                    Text("Support")
+                    Text("About & Support")
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
         }
         .sheet(isPresented: $showingPermissions) {
@@ -168,20 +195,20 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Helper Computed Properties
+    // MARK: - Helper Functions
 
     private func syncStatusColor(for state: SyncState) -> Color {
         switch state {
         case .idle:
-            return .gray
+            return DesignSystem.Colors.tertiaryLabel
         case .syncing:
-            return .blue
+            return DesignSystem.Colors.info
         case .synced:
-            return .green
+            return DesignSystem.Colors.success
         case .failed:
-            return .red
+            return DesignSystem.Colors.error
         case .offline:
-            return .orange
+            return DesignSystem.Colors.warning
         }
     }
 
@@ -190,7 +217,7 @@ struct SettingsView: View {
             return error.userFriendlyMessage
         } else if exchangeService.isStale {
             return "Outdated (\(exchangeService.cacheAgeDescription))"
-        } else if let lastUpdated = exchangeService.lastUpdated {
+        } else if let _ = exchangeService.lastUpdated {
             return "Updated \(exchangeService.cacheAgeDescription)"
         } else {
             return "Never updated"
@@ -199,16 +226,16 @@ struct SettingsView: View {
 
     private var exchangeRateStatusColor: Color {
         if exchangeService.error != nil {
-            return .red
+            return DesignSystem.Colors.error
         } else if exchangeService.isStale {
-            return .orange
+            return DesignSystem.Colors.warning
         } else {
-            return .green
+            return DesignSystem.Colors.success
         }
     }
 }
 
-// MARK: - Sync Status Row Component
+// MARK: - Sync Status Row
 
 struct SyncStatusRow: View {
     let icon: String
@@ -218,25 +245,32 @@ struct SyncStatusRow: View {
     let isLoading: Bool
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(statusColor)
-                .frame(width: 24)
+        HStack(spacing: DesignSystem.Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(statusColor.opacity(0.15))
+                    .frame(width: 32, height: 32)
 
-            VStack(alignment: .leading, spacing: 2) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(statusColor)
+                    .symbolRenderingMode(.hierarchical)
+            }
+
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
                 Text(title)
-                    .font(.subheadline)
+                    .font(DesignSystem.Typography.callout)
                     .fontWeight(.medium)
+                    .foregroundStyle(DesignSystem.Colors.label)
 
-                HStack(spacing: 6) {
+                HStack(spacing: DesignSystem.Spacing.xs) {
                     Circle()
                         .fill(statusColor)
                         .frame(width: 6, height: 6)
 
                     Text(status)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                 }
             }
 
@@ -244,12 +278,12 @@ struct SyncStatusRow: View {
 
             if isLoading {
                 ProgressView()
-                    .scaleEffect(0.8)
             }
         }
-        .padding(.vertical, 4)
     }
 }
+
+// MARK: - Settings Row
 
 struct SettingsRow: View {
     let icon: String
@@ -257,98 +291,134 @@ struct SettingsRow: View {
     let subtitle: String
     let color: Color
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
+            HStack(spacing: DesignSystem.Spacing.md) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(color)
                         .frame(width: 32, height: 32)
-                    
+
                     Image(systemName: icon)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .symbolRenderingMode(.hierarchical)
                 }
-                
-                VStack(alignment: .leading, spacing: 2) {
+
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
                     Text(title)
-                        .font(.subheadline)
+                        .font(DesignSystem.Typography.callout)
                         .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                    
+                        .foregroundStyle(DesignSystem.Colors.label)
+
                     Text(subtitle)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
             }
         }
-        .buttonStyle(.plain)
     }
 }
 
+// MARK: - About View
+
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 24) {
-                    // App Icon
-                    Image(systemName: "calendar.badge.checkmark")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
-                    
-                    VStack(spacing: 8) {
-                        Text("SubTrackr")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Version 1.0")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("About")
-                            .font(.headline)
-                        
-                        Text("SubTrackr helps you keep track of all your recurring subscriptions in one beautiful, easy-to-use app. Never miss a renewal date or lose track of your monthly spending again.")
-                            .font(.body)
-                            .foregroundColor(.secondary)
-                        
-                        Text("Features:")
-                            .font(.headline)
-                            .padding(.top)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            FeatureRow(text: "Calendar view of all subscriptions")
-                            FeatureRow(text: "Monthly spending overview")
-                            FeatureRow(text: "Search and filter subscriptions")
-                            FeatureRow(text: "iCloud sync across devices")
-                            FeatureRow(text: "Renewal notifications")
+                VStack(spacing: DesignSystem.Spacing.xxxl) {
+                    // App Icon & Title
+                    VStack(spacing: DesignSystem.Spacing.lg) {
+                        // App Icon
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.hero, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        DesignSystem.Colors.accent,
+                                        DesignSystem.Colors.accent.opacity(0.8)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 100, height: 100)
+                            .overlay(
+                                Image(systemName: "calendar.badge.checkmark")
+                                    .font(.system(size: 48, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .symbolRenderingMode(.hierarchical)
+                            )
+                            .softShadow()
+
+                        VStack(spacing: DesignSystem.Spacing.xs) {
+                            Text("SubTrackr")
+                                .font(DesignSystem.Typography.largeTitleRounded)
+
+                            Text("Version 1.0.0")
+                                .font(DesignSystem.Typography.subheadline)
+                                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                         }
                     }
-                    .padding()
+                    .padding(.top, DesignSystem.Spacing.xxl)
+
+                    // About Section
+                    VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                            Text("About")
+                                .font(DesignSystem.Typography.title3)
+
+                            Text("SubTrackr helps you keep track of all your recurring subscriptions in one beautiful, easy-to-use app. Never miss a renewal date or lose track of your monthly spending again.")
+                                .font(DesignSystem.Typography.callout)
+                                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Divider()
+                            .padding(.vertical, DesignSystem.Spacing.sm)
+
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                            Text("Features")
+                                .font(DesignSystem.Typography.title3)
+
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                                FeatureRow(icon: "calendar", text: "Calendar view of all subscriptions")
+                                FeatureRow(icon: "chart.pie.fill", text: "Monthly spending overview")
+                                FeatureRow(icon: "magnifyingglass", text: "Search and filter subscriptions")
+                                FeatureRow(icon: "icloud.fill", text: "iCloud sync across devices")
+                                FeatureRow(icon: "bell.fill", text: "Renewal notifications")
+                                FeatureRow(icon: "dollarsign.circle.fill", text: "Multi-currency support")
+                            }
+                        }
+                    }
+                    .padding(DesignSystem.Spacing.xl)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Material.regularMaterial)
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                            .fill(DesignSystem.Colors.secondaryBackground)
                     )
+                    .screenPadding()
                 }
-                .padding()
+                .padding(.bottom, DesignSystem.Spacing.xxxl)
             }
+            .background(DesignSystem.Colors.background)
             .navigationTitle("About")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
+                    Button {
+                        DesignSystem.Haptics.light()
                         dismiss()
+                    } label: {
+                        Text("Done")
+                            .fontWeight(.semibold)
                     }
                 }
             }
@@ -356,18 +426,28 @@ struct AboutView: View {
     }
 }
 
+// MARK: - Feature Row
+
 struct FeatureRow: View {
+    let icon: String
     let text: String
-    
+
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.caption)
-                .foregroundColor(.green)
-            
+        HStack(spacing: DesignSystem.Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(DesignSystem.Colors.success.opacity(0.15))
+                    .frame(width: 32, height: 32)
+
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(DesignSystem.Colors.success)
+                    .symbolRenderingMode(.hierarchical)
+            }
+
             Text(text)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+                .font(DesignSystem.Typography.callout)
+                .foregroundStyle(DesignSystem.Colors.label)
         }
     }
 }
