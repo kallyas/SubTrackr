@@ -1,12 +1,16 @@
 import SwiftUI
 
 struct SearchView: View {
-    @StateObject private var viewModel = SubscriptionViewModel()
+    @EnvironmentObject private var viewModel: SubscriptionViewModel
+    @StateObject private var cloudKitService = CloudKitService.shared
     @State private var showingFilters = false
+    @State private var subscriptionToDelete: Subscription?
+    @State private var showingDeleteConfirmation = false
+    @State private var subscriptionToEdit: Subscription?
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     searchBar
@@ -27,7 +31,9 @@ struct SearchView: View {
                     }
 
                     // Content
-                    if viewModel.searchText.isEmpty && viewModel.selectedCategory == nil {
+                    if cloudKitService.isLoading && viewModel.subscriptions.isEmpty {
+                        SearchLoadingSkeleton()
+                    } else if viewModel.searchText.isEmpty && viewModel.selectedCategory == nil {
                         emptySearchState
                     } else if viewModel.filteredSubscriptions.isEmpty {
                         noResultsState
@@ -38,9 +44,38 @@ struct SearchView: View {
                 .padding(.top, DesignSystem.Spacing.md)
             }
             .background(DesignSystem.Colors.background)
+            .refreshable {
+                CloudKitService.shared.fetchSubscriptions()
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        ForEach(SortOption.allCases, id: \.self) { option in
+                            Button {
+                                DesignSystem.Haptics.selection()
+                                withAnimation(DesignSystem.Animation.springSnappy) {
+                                    viewModel.sortOption = option
+                                }
+                            } label: {
+                                HStack {
+                                    Text(option.rawValue)
+                                    if viewModel.sortOption == option {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 24))
+                            .foregroundStyle(DesignSystem.Colors.accent)
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         DesignSystem.Haptics.light()
@@ -57,6 +92,41 @@ struct SearchView: View {
         .sheet(isPresented: $showingFilters) {
             FilterView(selectedCategory: $viewModel.selectedCategory)
         }
+        .sheet(item: $subscriptionToEdit) { subscription in
+            EditSubscriptionView(subscription: subscription) { updatedSubscription in
+                viewModel.updateSubscription(updatedSubscription)
+            }
+        }
+        .confirmationDialog(
+            "Delete Subscription",
+            isPresented: $showingDeleteConfirmation,
+            presenting: subscriptionToDelete
+        ) { subscription in
+            Button("Delete \(subscription.name)", role: .destructive) {
+                withAnimation(DesignSystem.Animation.springSnappy) {
+                    viewModel.deleteSubscription(subscription)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                subscriptionToDelete = nil
+            }
+        } message: { subscription in
+            Text("Are you sure you want to delete \(subscription.name)? This action cannot be undone.")
+        }
+        .overlay(alignment: .bottom) {
+            if viewModel.showingUndoAlert, let deleted = viewModel.recentlyDeletedSubscription {
+                UndoBanner(
+                    message: "\(deleted.name) deleted",
+                    onUndo: {
+                        viewModel.undoDelete()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, DesignSystem.Spacing.xxl)
+                .screenPadding()
+            }
+        }
+        .animation(DesignSystem.Animation.springSmooth, value: viewModel.showingUndoAlert)
     }
 
     // MARK: - Search Bar
@@ -186,9 +256,42 @@ struct SearchView: View {
     private var searchResults: some View {
         LazyVStack(spacing: DesignSystem.Spacing.sm) {
             ForEach(viewModel.filteredSubscriptions) { subscription in
-                SearchResultRow(subscription: subscription) { selectedSubscription in
+                SearchResultRow(
+                    subscription: subscription,
+                    searchText: viewModel.searchText
+                ) { selectedSubscription in
                     DesignSystem.Haptics.selection()
-                    // Handle navigation to details
+                    subscriptionToEdit = selectedSubscription
+                }
+                .contextMenu {
+                    Button {
+                        subscriptionToEdit = subscription
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+
+                    Button(role: .destructive) {
+                        subscriptionToDelete = subscription
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        subscriptionToDelete = subscription
+                        showingDeleteConfirmation = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                    Button {
+                        subscriptionToEdit = subscription
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    .tint(DesignSystem.Colors.accent)
                 }
             }
         }
@@ -218,7 +321,7 @@ struct FilterView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xl) {
                     VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
@@ -397,7 +500,19 @@ struct CategoryFilterCard: View {
 
 struct SearchResultRow: View {
     let subscription: Subscription
+    let searchText: String
     let onTap: (Subscription) -> Void
+
+    private var accessibilityLabel: String {
+        let currencyManager = CurrencyManager.shared
+        let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+        let formattedCost = currencyManager.formatAmount(convertedCost)
+        return "\(subscription.name), \(formattedCost) \(subscription.billingCycle.rawValue), \(subscription.category.rawValue) category"
+    }
+
+    private var accessibilityHint: String {
+        "Double tap to edit. Swipe left to delete, swipe right to edit."
+    }
 
     var body: some View {
         Button {
@@ -415,18 +530,24 @@ struct SearchResultRow: View {
                         .foregroundStyle(subscription.category.color)
                         .symbolRenderingMode(.hierarchical)
                 }
+                .accessibilityHidden(true)
 
                 // Subscription details
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                    Text(subscription.name)
-                        .font(DesignSystem.Typography.callout)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(DesignSystem.Colors.label)
+                    HighlightedText(
+                        subscription.name,
+                        searchText: searchText,
+                        font: DesignSystem.Typography.callout.weight(.semibold),
+                        foregroundColor: DesignSystem.Colors.label
+                    )
 
                     HStack(spacing: DesignSystem.Spacing.xs) {
-                        Text(subscription.category.rawValue)
-                            .font(DesignSystem.Typography.caption1)
-                            .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                        HighlightedText(
+                            subscription.category.rawValue,
+                            searchText: searchText,
+                            font: DesignSystem.Typography.caption1,
+                            foregroundColor: DesignSystem.Colors.secondaryLabel
+                        )
 
                         Circle()
                             .fill(DesignSystem.Colors.quaternaryLabel)
@@ -460,9 +581,13 @@ struct SearchResultRow: View {
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous))
         }
         .buttonStyle(InteractiveScaleButtonStyle(scale: 0.97, haptic: false))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
     }
 }
 
 #Preview {
     SearchView()
+        .environmentObject(SubscriptionViewModel())
 }
