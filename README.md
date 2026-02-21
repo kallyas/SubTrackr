@@ -14,7 +14,7 @@ A modern, native iOS subscription tracking app that helps you manage and monitor
   - Red circle for today's date
   - Month preview while swiping
 - **Category Organization**: Organize subscriptions by categories (Streaming, Software, Fitness, Gaming, etc.)
-- **Home Widgets**: Track subscriptions directly from your home screen
+- **Home Widgets**: Track subscriptions from your home screen in your preferred currency
   - Small widget: Monthly total or next renewal
   - Medium widget: Overview with upcoming renewals
   - Large widget: Detailed subscription list
@@ -35,11 +35,22 @@ SubTrackr supports **120+ currencies** from around the world, including:
 - **Real-time Updates**: Live sync when changes are made
 - **Privacy Focused**: Your data stays in your iCloud account
 
-### 💰 Currency Features
-- **Multi-currency Support**: Track subscriptions in different currencies
-- **Currency Conversion**: Convert amounts between currencies
-- **Exchange Rate Updates**: Automatic exchange rate fetching
-- **Localized Formatting**: Proper currency formatting for each region
+### 💰 Budget Tracking
+- **Set Monthly Budget**: Define your monthly spending limit
+- **Visual Progress**: See how much of your budget is used
+- **Warning Alerts**: Get notified at 80% and 100% thresholds
+- **Budget Status**: Color-coded status (normal, warning, exceeded)
+
+### 📋 Subscription Templates
+- **Quick Add**: Browse pre-built templates for popular services
+- **AI Subscriptions**: Includes ChatGPT, Claude, Perplexity, Gemini, and more
+- **Smart Categories**: Auto-categorized with icons and typical prices
+- **Currency Aware**: All prices converted to your preferred currency
+
+### 🖼️ Widget Enhancements
+- **Currency Conversion**: Widget displays amounts in your preferred currency
+- **Real-time Updates**: Syncs automatically when currency changes
+- **Multiple Views**: Summary, upcoming renewals, and total spending
 
 ## Technical Architecture
 
@@ -184,6 +195,23 @@ SubTrackr uses a comprehensive design system for consistency across the app:
 - **Custom Calendar**: iOS-native calendar design with gesture support
 
 ## Recent Improvements
+
+### Version 2.2 - Complete Feature Set
+- **Sort Options**: Sort subscriptions by name, price, renewal date
+- **Archive Instead of Delete**: Soft delete with restore capability
+- **Free Trial Tracking**: Mark subscriptions as trial with countdown to end
+- **Annual Spending View**: See yearly projection in overview
+- **CSV Export**: Export subscriptions to CSV file
+- **Tags System**: Add custom tags to subscriptions
+- **Search Improvements**: Filter by category with inline chips
+
+### Version 2.1 - Budget & Templates
+- **Budget Tracking**: Set monthly spending limits with visual progress bars
+- **Warning Notifications**: Alerts at 80% and 100% budget thresholds
+- **Subscription Templates**: Pre-built templates for 45+ popular services
+- **AI Subscriptions**: Quick-add for ChatGPT, Claude, Perplexity, Gemini, and more
+- **Currency Conversion**: All amounts converted to your preferred currency throughout the app
+- **Horizontal Bar Charts**: Replaced pie charts with easier-to-read bar charts
 
 ### Version 2.0 - iOS Native Design
 - Complete calendar redesign matching Apple Calendar
