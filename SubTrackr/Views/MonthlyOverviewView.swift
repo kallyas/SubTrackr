@@ -1,22 +1,37 @@
 import SwiftUI
 
 struct MonthlyOverviewView: View {
-    @StateObject private var viewModel = SubscriptionViewModel()
+    @EnvironmentObject private var viewModel: SubscriptionViewModel
+    @StateObject private var cloudKitService = CloudKitService.shared
+    @ObservedObject private var budgetManager = BudgetManager.shared
     @State private var selectedCategory: SubscriptionCategory?
+    @State private var subscriptionToDelete: Subscription?
+    @State private var showingDeleteConfirmation = false
+    @State private var subscriptionToEdit: Subscription?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
-                VStack(spacing: DesignSystem.Spacing.xl) {
-                    monthlyTotalCard
-                    spendingChart
-                    categoryBreakdown
-                    upcomingRenewals
+                if cloudKitService.isLoading && viewModel.subscriptions.isEmpty {
+                    OverviewLoadingSkeleton()
+                } else {
+                    VStack(spacing: DesignSystem.Spacing.xl) {
+                        if budgetManager.budgetEnabled {
+                            budgetProgressCard
+                        }
+                        monthlyTotalCard
+                        spendingChart
+                        categoryBreakdown
+                        upcomingRenewals
+                    }
+                    .padding(.vertical, DesignSystem.Spacing.lg)
+                    .screenPadding()
                 }
-                .padding(.vertical, DesignSystem.Spacing.lg)
-                .screenPadding()
             }
             .background(DesignSystem.Colors.background)
+            .refreshable {
+                await refreshData()
+            }
             .navigationTitle("Overview")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -37,6 +52,139 @@ struct MonthlyOverviewView: View {
                 viewModel.addSubscription(subscription)
             }
         }
+        .sheet(item: $subscriptionToEdit) { subscription in
+            EditSubscriptionView(subscription: subscription) { updatedSubscription in
+                viewModel.updateSubscription(updatedSubscription)
+            }
+        }
+        .confirmationDialog(
+            "Delete Subscription",
+            isPresented: $showingDeleteConfirmation,
+            presenting: subscriptionToDelete
+        ) { subscription in
+            Button("Delete \(subscription.name)", role: .destructive) {
+                withAnimation(DesignSystem.Animation.springSnappy) {
+                    viewModel.deleteSubscription(subscription)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                subscriptionToDelete = nil
+            }
+        } message: { subscription in
+            Text("Are you sure you want to delete \(subscription.name)? This action cannot be undone.")
+        }
+        .overlay(alignment: .bottom) {
+            if viewModel.showingUndoAlert, let deleted = viewModel.recentlyDeletedSubscription {
+                UndoBanner(
+                    message: "\(deleted.name) deleted",
+                    onUndo: {
+                        viewModel.undoDelete()
+                    }
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .padding(.bottom, DesignSystem.Spacing.xxl)
+                .screenPadding()
+            }
+        }
+        .animation(DesignSystem.Animation.springSmooth, value: viewModel.showingUndoAlert)
+    }
+
+    // MARK: - Actions
+
+    private func refreshData() async {
+        // Trigger CloudKit refresh
+        CloudKitService.shared.fetchSubscriptions()
+        CurrencyExchangeService.shared.forceRefresh()
+
+        // Wait a bit for the refresh to complete
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+    }
+
+    // MARK: - Budget Progress Card
+
+    private var budgetProgressCard: some View {
+        let status = budgetManager.checkBudgetStatus(currentSpending: viewModel.monthlyTotal)
+        let progress = min(viewModel.monthlyTotal / budgetManager.monthlyBudget, 1.0)
+        let remaining = max(budgetManager.monthlyBudget - viewModel.monthlyTotal, 0)
+
+        return VStack(spacing: DesignSystem.Spacing.md) {
+            HStack {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: status.icon)
+                            .font(DesignSystem.Typography.callout)
+                            .foregroundStyle(status.color)
+
+                        Text("Budget")
+                            .font(DesignSystem.Typography.headline)
+                    }
+
+                    Text(status.message)
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(status.color)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xxs) {
+                    Text(CurrencyManager.shared.formatAmount(viewModel.monthlyTotal))
+                        .font(DesignSystem.Typography.title3)
+                        .fontWeight(.bold)
+                        .foregroundStyle(status.color)
+
+                    Text("of \(CurrencyManager.shared.formatAmount(budgetManager.monthlyBudget))")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                }
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(DesignSystem.Colors.tertiaryFill)
+                        .frame(height: 12)
+
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(status.color)
+                        .frame(width: geometry.size.width * progress, height: 12)
+
+                    if progress >= 0.8 {
+                        Circle()
+                            .fill(status.color)
+                            .frame(width: 12, height: 12)
+                            .offset(x: geometry.size.width * progress - 6)
+                    }
+                }
+            }
+            .frame(height: 12)
+
+            HStack {
+                Text("\(Int(progress * 100))% used")
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+
+                Spacer()
+
+                if remaining > 0 {
+                    Text("\(CurrencyManager.shared.formatAmount(remaining)) remaining")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.success)
+                } else {
+                    Text("Over budget by \(CurrencyManager.shared.formatAmount(abs(remaining)))")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.error)
+                }
+            }
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .fill(DesignSystem.Colors.secondaryBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .strokeBorder(status.color.opacity(0.3), lineWidth: 1)
+        )
     }
 
     // MARK: - Monthly Total Card
@@ -60,19 +208,32 @@ struct MonthlyOverviewView: View {
                     .font(DesignSystem.Typography.callout)
                     .foregroundStyle(DesignSystem.Colors.success)
 
-                Text("\(viewModel.subscriptions.filter(\.isActive).count) active")
+                Text("\(viewModel.subscriptions.filter { $0.isActive && !$0.isArchived }.count) active")
                     .font(DesignSystem.Typography.callout)
                     .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
+            
+            // Annual projection
+            Divider()
+                .padding(.vertical, DesignSystem.Spacing.sm)
+            
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundStyle(DesignSystem.Colors.accent)
 
-                if viewModel.subscriptions.filter({ !$0.isActive }).count > 0 {
-                    Circle()
-                        .fill(DesignSystem.Colors.quaternaryLabel)
-                        .frame(width: 3, height: 3)
-
-                    Text("\(viewModel.subscriptions.filter({ !$0.isActive }).count) inactive")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
-                }
+                Text("Annual: ")
+                    .font(DesignSystem.Typography.callout)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                
+                Text(CurrencyManager.shared.formatAmount(viewModel.annualTotal))
+                    .font(DesignSystem.Typography.callout)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DesignSystem.Colors.label)
+                
+                Text("per year")
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
             }
         }
         .frame(maxWidth: .infinity)
@@ -118,29 +279,25 @@ struct MonthlyOverviewView: View {
                 )
                 .padding(DesignSystem.Spacing.xxl)
             } else {
-                ZStack {
-                    // Pie chart
-                    CustomPieChart(
-                        data: viewModel.chartData,
-                        selectedCategory: selectedCategory
-                    )
-                    .frame(height: 220)
-                    .padding(.horizontal, DesignSystem.Spacing.lg)
-
-                    // Center text showing selected category
-                    if let selected = selectedCategory,
-                       let item = viewModel.chartData.first(where: { $0.category == selected }) {
-                        VStack(spacing: DesignSystem.Spacing.xxs) {
-                            Text(CurrencyManager.shared.formatAmount(item.amount))
-                                .font(DesignSystem.Typography.title3)
-                                .foregroundStyle(selected.color)
-
-                            Text("\(item.percentage, specifier: "%.0f")%")
-                                .font(DesignSystem.Typography.caption1)
-                                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                VStack(spacing: DesignSystem.Spacing.sm) {
+                    ForEach(viewModel.chartData.prefix(6), id: \.category) { item in
+                        HorizontalBarChartRow(
+                            category: item.category,
+                            amount: item.amount,
+                            percentage: item.percentage,
+                            maxAmount: viewModel.chartData.first?.amount ?? 1,
+                            isSelected: selectedCategory == item.category
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            DesignSystem.Haptics.selection()
+                            withAnimation(DesignSystem.Animation.springSnappy) {
+                                selectedCategory = selectedCategory == item.category ? nil : item.category
+                            }
                         }
                     }
                 }
+                .padding(.horizontal, DesignSystem.Spacing.lg)
             }
         }
         .padding(.bottom, DesignSystem.Spacing.lg)
@@ -228,6 +385,20 @@ struct MonthlyOverviewView: View {
                 VStack(spacing: DesignSystem.Spacing.xs) {
                     ForEach(upcomingSubscriptions) { subscription in
                         UpcomingRenewalRowView(subscription: subscription)
+                            .contextMenu {
+                                Button {
+                                    subscriptionToEdit = subscription
+                                } label: {
+                                    Label("Edit", systemImage: "pencil")
+                                }
+
+                                Button(role: .destructive) {
+                                    subscriptionToDelete = subscription
+                                    showingDeleteConfirmation = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, DesignSystem.Spacing.md)
@@ -343,6 +514,13 @@ struct UpcomingRenewalRowView: View {
         }
     }
 
+    private var accessibilityLabel: String {
+        let currencyManager = CurrencyManager.shared
+        let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
+        let formattedCost = currencyManager.formatAmount(convertedCost)
+        return "\(subscription.name), \(formattedCost), renews \(renewalText.lowercased())"
+    }
+
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.md) {
             // Subscription icon
@@ -391,6 +569,9 @@ struct UpcomingRenewalRowView: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
                 .fill(DesignSystem.Colors.tertiaryBackground)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Long press for more options")
     }
 }
 
@@ -481,6 +662,86 @@ struct PieSlice: Shape {
     }
 }
 
+// MARK: - Horizontal Bar Chart Row
+
+struct HorizontalBarChartRow: View {
+    let category: SubscriptionCategory
+    let amount: Double
+    let percentage: Double
+    let maxAmount: Double
+    let isSelected: Bool
+    
+    private var barWidth: CGFloat {
+        guard maxAmount > 0 else { return 0 }
+        return CGFloat(amount / maxAmount)
+    }
+    
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.md) {
+            // Category icon
+            ZStack {
+                Circle()
+                    .fill(DesignSystem.Colors.categorySubtle(category.color))
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: category.iconName)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(category.color)
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .frame(width: 36)
+            
+            // Bar and amount
+            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                // Category name and amount
+                HStack {
+                    Text(category.rawValue)
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.medium)
+                        .foregroundStyle(DesignSystem.Colors.label)
+                    
+                    Spacer()
+                    
+                    Text(CurrencyManager.shared.formatAmount(amount))
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(DesignSystem.Colors.label)
+                }
+                
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(DesignSystem.Colors.tertiaryFill)
+                            .frame(height: 6)
+                        
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            .fill(category.color)
+                            .frame(width: geometry.size.width * barWidth, height: 6)
+                    }
+                }
+                .frame(height: 6)
+                
+                // Percentage
+                Text("\(percentage, specifier: "%.1f")%")
+                    .font(DesignSystem.Typography.caption2)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
+        }
+        .padding(DesignSystem.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                .fill(isSelected ? DesignSystem.Colors.categorySubtle(category.color) : DesignSystem.Colors.tertiaryBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                .strokeBorder(isSelected ? category.color.opacity(0.3) : Color.clear, lineWidth: 1.5)
+        )
+        .scaleEffect(isSelected ? 1.02 : 1.0)
+    }
+}
+
 #Preview {
     MonthlyOverviewView()
+        .environmentObject(SubscriptionViewModel())
 }

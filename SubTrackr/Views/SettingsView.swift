@@ -1,16 +1,19 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @StateObject private var permissionsManager = PermissionsManager.shared
-    @StateObject private var currencyManager = CurrencyManager.shared
-    @StateObject private var cloudKitService = CloudKitService.shared
-    @StateObject private var exchangeService = CurrencyExchangeService.shared
+    @ObservedObject private var permissionsManager = PermissionsManager.shared
+    @ObservedObject private var currencyManager = CurrencyManager.shared
+    @ObservedObject private var cloudKitService = CloudKitService.shared
+    @ObservedObject private var exchangeService = CurrencyExchangeService.shared
+    @ObservedObject private var budgetManager = BudgetManager.shared
     @State private var showingPermissions = false
     @State private var showingAbout = false
     @State private var showingCurrencyPicker = false
+    @State private var showingBudgetEditor = false
+    @State private var budgetAmountText = ""
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 // MARK: - Preferences
                 Section {
@@ -25,6 +28,74 @@ struct SettingsView: View {
                     }
                 } header: {
                     Text("Preferences")
+                }
+
+                // MARK: - Budget
+                Section {
+                    Toggle(isOn: $budgetManager.budgetEnabled) {
+                        HStack(spacing: DesignSystem.Spacing.md) {
+                            ZStack {
+                                Circle()
+                                    .fill(DesignSystem.Colors.warning.opacity(0.15))
+                                    .frame(width: 32, height: 32)
+
+                                Image(systemName: "target")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(DesignSystem.Colors.warning)
+                                    .symbolRenderingMode(.hierarchical)
+                            }
+
+                            Text("Budget Tracking")
+                                .font(DesignSystem.Typography.callout)
+                                .foregroundStyle(DesignSystem.Colors.label)
+                        }
+                    }
+                    .tint(DesignSystem.Colors.accent)
+
+                    if budgetManager.budgetEnabled {
+                        Button {
+                            showingBudgetEditor = true
+                        } label: {
+                            HStack(spacing: DesignSystem.Spacing.md) {
+                                ZStack {
+                                    Circle()
+                                        .fill(DesignSystem.Colors.success.opacity(0.15))
+                                        .frame(width: 32, height: 32)
+
+                                    Image(systemName: "dollarsign.circle.fill")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(DesignSystem.Colors.success)
+                                        .symbolRenderingMode(.hierarchical)
+                                }
+
+                                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                                    Text("Monthly Budget")
+                                        .font(DesignSystem.Typography.callout)
+                                        .foregroundStyle(DesignSystem.Colors.label)
+
+                                    Text("\(currencyManager.selectedCurrency.symbol)\(Int(budgetManager.monthlyBudget))")
+                                        .font(DesignSystem.Typography.caption1)
+                                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Budget")
+                } footer: {
+                    if budgetManager.budgetEnabled {
+                        Text("Get notified when you approach or exceed your monthly budget.")
+                            .font(DesignSystem.Typography.caption2)
+                    } else {
+                        Text("Enable budget tracking to get notified when you're approaching your spending limit.")
+                            .font(DesignSystem.Typography.caption2)
+                    }
                 }
 
                 // MARK: - Sync Status
@@ -193,6 +264,9 @@ struct SettingsView: View {
         .sheet(isPresented: $showingCurrencyPicker) {
             CurrencyPickerView()
         }
+        .sheet(isPresented: $showingBudgetEditor) {
+            BudgetEditorView()
+        }
     }
 
     // MARK: - Helper Functions
@@ -333,7 +407,7 @@ struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.xxxl) {
                     // App Icon & Title
