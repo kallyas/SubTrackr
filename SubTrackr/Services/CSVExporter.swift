@@ -39,13 +39,30 @@ class CSVExporter {
     
     func exportToFile(_ subscriptions: [Subscription]) -> URL? {
         let csv = exportSubscriptions(subscriptions)
-        
+
         let fileName = "SubTrackr_Export_\(dateString()).csv"
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileURL = tempDir.appendingPathComponent(fileName)
-        
+
+        // Use Documents directory for better sharing compatibility
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let fileURL = documentsDir.appendingPathComponent(fileName)
+
         do {
+            // Remove old file if exists
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+
             try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            // Ensure file is readable
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o644],
+                ofItemAtPath: fileURL.path
+            )
+
             return fileURL
         } catch {
             print("Error exporting CSV: \(error)")

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var viewModel: SubscriptionViewModel
     @ObservedObject private var permissionsManager = PermissionsManager.shared
     @ObservedObject private var currencyManager = CurrencyManager.shared
     @ObservedObject private var cloudKitService = CloudKitService.shared
@@ -10,6 +11,7 @@ struct SettingsView: View {
     @State private var showingAbout = false
     @State private var showingCurrencyPicker = false
     @State private var showingBudgetEditor = false
+    @State private var exportItem: ExportItem?
     @State private var budgetAmountText = ""
 
     var body: some View {
@@ -73,7 +75,7 @@ struct SettingsView: View {
                                         .font(DesignSystem.Typography.callout)
                                         .foregroundStyle(DesignSystem.Colors.label)
 
-                                    Text("\(currencyManager.selectedCurrency.symbol)\(Int(budgetManager.monthlyBudget))")
+                                    Text(currencyManager.formatAmount(budgetManager.budgetInUserCurrency))
                                         .font(DesignSystem.Typography.caption1)
                                         .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                                 }
@@ -176,6 +178,47 @@ struct SettingsView: View {
                     }
                 }
 
+                // MARK: - Data
+                Section {
+                    Button {
+                        DesignSystem.Haptics.light()
+                        exportData()
+                    } label: {
+                        HStack(spacing: DesignSystem.Spacing.md) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(DesignSystem.Colors.accent)
+                                    .frame(width: 32, height: 32)
+
+                                Image(systemName: "square.and.arrow.up.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                                Text("Export Data")
+                                    .font(DesignSystem.Typography.callout)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(DesignSystem.Colors.label)
+
+                                Text("Export subscriptions as CSV")
+                                    .font(DesignSystem.Typography.caption1)
+                                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+                        }
+                    }
+                } header: {
+                    Text("Data")
+                } footer: {
+                    Text("Export all your subscriptions to a CSV file for backup or analysis.")
+                }
+
                 // MARK: - Privacy & Permissions
                 Section {
                     SettingsRow(
@@ -266,6 +309,17 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showingBudgetEditor) {
             BudgetEditorView()
+        }
+        .sheet(item: $exportItem) { item in
+            ShareSheet(items: [CSVActivityItemProvider(fileURL: item.url)])
+        }
+    }
+
+    // MARK: - Export Data
+
+    private func exportData() {
+        if let url = CSVExporter.shared.exportToFile(viewModel.subscriptions) {
+            exportItem = ExportItem(url: url)
         }
     }
 
@@ -526,6 +580,64 @@ struct FeatureRow: View {
     }
 }
 
+// MARK: - Export Item
+
+struct ExportItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+// MARK: - Share Sheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+
+        // Exclude activities that don't make sense for CSV files
+        controller.excludedActivityTypes = [
+            .assignToContact,
+            .addToReadingList,
+            .postToFacebook,
+            .postToTwitter,
+            .postToWeibo,
+            .postToVimeo,
+            .postToTencentWeibo,
+            .postToFlickr,
+            .openInIBooks
+        ]
+
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - CSV Activity Item Provider
+
+class CSVActivityItemProvider: UIActivityItemProvider, @unchecked Sendable {
+    let fileURL: URL
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+        super.init(placeholderItem: fileURL)
+    }
+
+    override var item: Any {
+        return fileURL
+    }
+
+    override func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return "SubTrackr Export"
+    }
+
+    override func activityViewController(_ activityViewController: UIActivityViewController, dataTypeIdentifierForActivityType activityType: UIActivity.ActivityType?) -> String {
+        return "public.comma-separated-values-text"
+    }
+}
+
 #Preview {
     SettingsView()
+        .environmentObject(SubscriptionViewModel())
 }
