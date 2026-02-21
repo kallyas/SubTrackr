@@ -91,8 +91,10 @@ struct BudgetEditorView: View {
                 }
             }
             .onAppear {
-                budgetAmount = String(Int(budgetManager.monthlyBudget))
-                if let index = presets.firstIndex(of: budgetManager.monthlyBudget) {
+                // Show budget converted to user's current currency
+                let budgetInCurrentCurrency = budgetManager.budgetInUserCurrency
+                budgetAmount = String(Int(budgetInCurrentCurrency))
+                if let index = presets.firstIndex(of: budgetInCurrentCurrency) {
                     selectedPreset = index
                 }
             }
@@ -101,7 +103,10 @@ struct BudgetEditorView: View {
     
     private func saveBudget() {
         if let amount = Double(budgetAmount), amount > 0 {
-            budgetManager.monthlyBudget = amount
+            budgetManager.setBudget(
+                amount: amount,
+                currencyCode: currencyManager.selectedCurrency.code
+            )
             budgetManager.budgetEnabled = true
             dismiss()
         }

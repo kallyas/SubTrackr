@@ -9,26 +9,47 @@ class BudgetManager: ObservableObject {
     
     private enum Keys {
         static let monthlyBudget = "monthlyBudget"
+        static let budgetCurrencyCode = "budgetCurrencyCode"
         static let budgetEnabled = "budgetEnabled"
         static let budgetWarningThreshold = "budgetWarningThreshold"
     }
-    
+
+    /// The budget amount stored in its original currency
     @Published var monthlyBudget: Double {
         didSet {
             userDefaults.set(monthlyBudget, forKey: Keys.monthlyBudget)
         }
     }
-    
+
+    /// The currency code in which the budget was set
+    @Published var budgetCurrencyCode: String {
+        didSet {
+            userDefaults.set(budgetCurrencyCode, forKey: Keys.budgetCurrencyCode)
+        }
+    }
+
     @Published var budgetEnabled: Bool {
         didSet {
             userDefaults.set(budgetEnabled, forKey: Keys.budgetEnabled)
         }
     }
-    
+
     @Published var warningThreshold: Double {
         didSet {
             userDefaults.set(warningThreshold, forKey: Keys.budgetWarningThreshold)
         }
+    }
+
+    /// Budget amount converted to the user's currently selected currency
+    var budgetInUserCurrency: Double {
+        let budgetCurrency = Currency.currency(for: budgetCurrencyCode) ?? .USD
+        return CurrencyManager.shared.convertToUserCurrency(monthlyBudget, from: budgetCurrency)
+    }
+
+    /// Set budget with currency context
+    func setBudget(amount: Double, currencyCode: String) {
+        monthlyBudget = amount
+        budgetCurrencyCode = currencyCode
     }
     
     var budgetWarningSent: Bool {
@@ -43,9 +64,10 @@ class BudgetManager: ObservableObject {
     
     private init() {
         self.monthlyBudget = userDefaults.double(forKey: Keys.monthlyBudget)
+        self.budgetCurrencyCode = userDefaults.string(forKey: Keys.budgetCurrencyCode) ?? "USD"
         self.budgetEnabled = userDefaults.bool(forKey: Keys.budgetEnabled)
         self.warningThreshold = userDefaults.double(forKey: Keys.budgetWarningThreshold)
-        
+
         if monthlyBudget == 0 {
             monthlyBudget = 100
         }
@@ -70,10 +92,11 @@ class BudgetManager: ObservableObject {
     }
     
     func checkBudgetStatus(currentSpending: Double) -> BudgetStatus {
-        guard budgetEnabled, monthlyBudget > 0 else { return .normal }
-        
-        let percentage = (currentSpending / monthlyBudget) * 100
-        
+        let budgetConverted = budgetInUserCurrency
+        guard budgetEnabled, budgetConverted > 0 else { return .normal }
+
+        let percentage = (currentSpending / budgetConverted) * 100
+
         if percentage >= 100 {
             return .exceeded
         } else if percentage >= warningThreshold {

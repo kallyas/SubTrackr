@@ -103,76 +103,95 @@ struct MonthlyOverviewView: View {
     // MARK: - Budget Progress Card
 
     private var budgetProgressCard: some View {
+        let budgetConverted = budgetManager.budgetInUserCurrency
         let status = budgetManager.checkBudgetStatus(currentSpending: viewModel.monthlyTotal)
-        let progress = min(viewModel.monthlyTotal / budgetManager.monthlyBudget, 1.0)
-        let remaining = max(budgetManager.monthlyBudget - viewModel.monthlyTotal, 0)
+        let progress = budgetConverted > 0 ? min(viewModel.monthlyTotal / budgetConverted, 1.5) : 0
+        let remaining = budgetConverted - viewModel.monthlyTotal
+        let percentUsed = budgetConverted > 0 ? Int((viewModel.monthlyTotal / budgetConverted) * 100) : 0
 
         return VStack(spacing: DesignSystem.Spacing.md) {
+            // Header row: Status icon + "Budget" on left, status badge on right
             HStack {
-                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                    HStack(spacing: DesignSystem.Spacing.xs) {
-                        Image(systemName: status.icon)
-                            .font(DesignSystem.Typography.callout)
-                            .foregroundStyle(status.color)
-
-                        Text("Budget")
-                            .font(DesignSystem.Typography.headline)
-                    }
-
-                    Text(status.message)
-                        .font(DesignSystem.Typography.caption1)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Image(systemName: "target")
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(status.color)
+
+                    Text("Budget")
+                        .font(DesignSystem.Typography.headline)
+                        .foregroundStyle(DesignSystem.Colors.label)
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xxs) {
-                    Text(CurrencyManager.shared.formatAmount(viewModel.monthlyTotal))
-                        .font(DesignSystem.Typography.title3)
-                        .fontWeight(.bold)
-                        .foregroundStyle(status.color)
-
-                    Text("of \(CurrencyManager.shared.formatAmount(budgetManager.monthlyBudget))")
-                        .font(DesignSystem.Typography.caption1)
-                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                // Status pill
+                HStack(spacing: 4) {
+                    Image(systemName: status.icon)
+                        .font(.system(size: 10, weight: .bold))
+                    Text(status.message)
+                        .font(.system(size: 11, weight: .semibold))
                 }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(status.color))
             }
 
+            // Amount display: "spent / budget" centered, scalable
+            HStack(spacing: 4) {
+                Text(CurrencyManager.shared.formatAmount(viewModel.monthlyTotal))
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(status.color)
+
+                Text("/")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+
+                Text(CurrencyManager.shared.formatAmount(budgetConverted))
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
+            .minimumScaleFactor(0.6)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity)
+
+            // Progress bar
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(DesignSystem.Colors.tertiaryFill)
-                        .frame(height: 12)
 
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .fill(status.color)
-                        .frame(width: geometry.size.width * progress, height: 12)
-
-                    if progress >= 0.8 {
-                        Circle()
-                            .fill(status.color)
-                            .frame(width: 12, height: 12)
-                            .offset(x: geometry.size.width * progress - 6)
-                    }
+                        .frame(width: geometry.size.width * min(progress, 1.0))
                 }
             }
-            .frame(height: 12)
+            .frame(height: 10)
 
+            // Bottom row: percentage and remaining, compact
             HStack {
-                Text("\(Int(progress * 100))% used")
+                Text("\(percentUsed)%")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(status.color)
+
+                Text("used")
                     .font(DesignSystem.Typography.caption1)
-                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
 
                 Spacer()
 
-                if remaining > 0 {
-                    Text("\(CurrencyManager.shared.formatAmount(remaining)) remaining")
-                        .font(DesignSystem.Typography.caption1)
+                if remaining >= 0 {
+                    Text("\(CurrencyManager.shared.formatAmount(remaining)) left")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(DesignSystem.Colors.success)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                 } else {
-                    Text("Over budget by \(CurrencyManager.shared.formatAmount(abs(remaining)))")
-                        .font(DesignSystem.Typography.caption1)
+                    Text("\(CurrencyManager.shared.formatAmount(abs(remaining))) over")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(DesignSystem.Colors.error)
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
                 }
             }
         }
@@ -183,7 +202,7 @@ struct MonthlyOverviewView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .strokeBorder(status.color.opacity(0.3), lineWidth: 1)
+                .strokeBorder(status.color.opacity(0.2), lineWidth: 1)
         )
     }
 
@@ -521,6 +540,15 @@ struct UpcomingRenewalRowView: View {
         return "\(subscription.name), \(formattedCost), renews \(renewalText.lowercased())"
     }
 
+    private func trialEndText(days: Int) -> String {
+        switch days {
+        case ..<0: return "Trial expired"
+        case 0: return "Trial ends today"
+        case 1: return "Trial ends tomorrow"
+        default: return "Trial: \(days) days left"
+        }
+    }
+
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.md) {
             // Subscription icon
@@ -537,19 +565,35 @@ struct UpcomingRenewalRowView: View {
 
             // Subscription info
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                Text(subscription.name)
-                    .font(DesignSystem.Typography.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(DesignSystem.Colors.label)
+                HStack(spacing: DesignSystem.Spacing.xs) {
+                    Text(subscription.name)
+                        .font(DesignSystem.Typography.callout)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(DesignSystem.Colors.label)
+
+                    if subscription.isTrial {
+                        TrialBadge(subscription: subscription)
+                    }
+                }
 
                 HStack(spacing: DesignSystem.Spacing.xs) {
-                    Image(systemName: daysUntilRenewal == 0 ? "exclamationmark.circle.fill" : "clock.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(urgencyColor)
+                    if subscription.isTrial, let days = subscription.daysUntilTrialEnds {
+                        Image(systemName: subscription.isTrialExpiringSoon ? "exclamationmark.triangle.fill" : "gift.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(subscription.isTrialExpiringSoon ? DesignSystem.Colors.error : .orange)
 
-                    Text(renewalText)
-                        .font(DesignSystem.Typography.caption1)
-                        .foregroundStyle(urgencyColor)
+                        Text(trialEndText(days: days))
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(subscription.isTrialExpiringSoon ? DesignSystem.Colors.error : .orange)
+                    } else {
+                        Image(systemName: daysUntilRenewal == 0 ? "exclamationmark.circle.fill" : "clock.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(urgencyColor)
+
+                        Text(renewalText)
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(urgencyColor)
+                    }
                 }
             }
 
