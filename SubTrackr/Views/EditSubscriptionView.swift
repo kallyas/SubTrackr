@@ -17,6 +17,7 @@ struct EditSubscriptionView: View {
     @State private var isActive = true
     
     @State private var showingIconPicker = false
+    @State private var showingTemplatePicker = false
     
     private var isEditing: Bool {
         subscription != nil
@@ -63,13 +64,44 @@ struct EditSubscriptionView: View {
         .onAppear {
             loadSubscriptionData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .applyTemplate)) { notification in
+            if let template = notification.userInfo?["template"] as? SubscriptionTemplate {
+                name = template.name
+                iconName = template.iconName
+                category = template.category
+                billingCycle = template.billingCycle
+                selectedCurrency = CurrencyManager.shared.selectedCurrency
+                cost = String(format: "%.2f", template.typicalCostValue(in: selectedCurrency))
+            }
+        }
         .sheet(isPresented: $showingIconPicker) {
             IconPickerView(selectedIcon: $iconName)
+        }
+        .sheet(isPresented: $showingTemplatePicker) {
+            TemplatePickerView()
         }
     }
     
     private var basicInfoSection: some View {
-        Section("Basic Information") {
+        Section {
+            if !isEditing {
+                Button {
+                    showingTemplatePicker = true
+                } label: {
+                    HStack {
+                        Image(systemName: "sparkles")
+                            .foregroundStyle(.blue)
+                        Text("Browse Templates")
+                            .foregroundStyle(.blue)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            
             TextField("Service Name", text: $name)
                 .textInputAutocapitalization(.words)
             
