@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTab = 0
-    @StateObject private var permissionsManager = PermissionsManager.shared
+    @ObservedObject private var permissionsManager = PermissionsManager.shared
     
     var body: some View {
         TabView(selection: $selectedTab) {

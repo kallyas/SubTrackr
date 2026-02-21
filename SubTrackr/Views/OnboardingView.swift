@@ -1,10 +1,11 @@
 import SwiftUI
+import CloudKit
 
 struct OnboardingView: View {
     @Binding var isFirstLaunch: Bool
     @State private var currentPage = 0
     @State private var showingAddSubscription = false
-    @StateObject private var permissionsManager = PermissionsManager.shared
+    @ObservedObject private var permissionsManager = PermissionsManager.shared
     
     private let pages = [
         OnboardingPage(
@@ -128,27 +129,46 @@ struct OnboardingView: View {
         }
     }
     
+    private var notificationsEnabled: Bool {
+        permissionsManager.notificationPermissionStatus == .authorized
+    }
+
     private var getStartedButton: some View {
         VStack(spacing: 16) {
             if currentPage == pages.count - 1 {
                 // Permissions page
                 VStack(spacing: 12) {
+                    // Notification permission button with state
                     Button {
-                        Task {
-                            await permissionsManager.requestNotificationPermissions()
+                        if !notificationsEnabled {
+                            Task {
+                                await permissionsManager.requestNotificationPermissions()
+                            }
                         }
                     } label: {
-                        Text("Allow Notifications")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(pages[currentPage].color)
-                            )
+                        HStack(spacing: 12) {
+                            if notificationsEnabled {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 20, weight: .semibold))
+                            }
+                            Text(notificationsEnabled ? "Notifications Enabled" : "Allow Notifications")
+                                .font(.headline)
+                        }
+                        .foregroundColor(notificationsEnabled ? pages[currentPage].color : .white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(notificationsEnabled ? pages[currentPage].color.opacity(0.15) : pages[currentPage].color)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(notificationsEnabled ? pages[currentPage].color : Color.clear, lineWidth: 2)
+                        )
                     }
-                    
+                    .disabled(notificationsEnabled)
+                    .animation(.easeInOut(duration: 0.3), value: notificationsEnabled)
+
                     Button {
                         showingAddSubscription = true
                     } label: {
@@ -178,7 +198,7 @@ struct OnboardingView: View {
                         )
                 }
             }
-            
+
             Button("I'll Do This Later") {
                 isFirstLaunch = false
             }
