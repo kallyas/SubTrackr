@@ -12,6 +12,10 @@ struct Subscription: Identifiable, Hashable {
     var category: SubscriptionCategory
     var iconName: String
     var isActive: Bool
+    var isArchived: Bool
+    var isTrial: Bool
+    var trialEndDate: Date?
+    var tags: [String]
     
     var nextBillingDate: Date {
         Calendar.current.date(byAdding: billingCycle.calendarComponent, value: billingCycle.value, to: startDate) ?? startDate
@@ -21,7 +25,20 @@ struct Subscription: Identifiable, Hashable {
         Calendar.current.component(.day, from: startDate)
     }
     
-    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true) {
+    var daysUntilTrialEnds: Int? {
+        guard isTrial, let trialEnd = trialEndDate else { return nil }
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let end = calendar.startOfDay(for: trialEnd)
+        return calendar.dateComponents([.day], from: today, to: end).day
+    }
+    
+    var isTrialExpiringSoon: Bool {
+        guard let days = daysUntilTrialEnds else { return false }
+        return days >= 0 && days <= 3
+    }
+    
+    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true, isArchived: Bool = false, isTrial: Bool = false, trialEndDate: Date? = nil, tags: [String] = []) {
         self.id = id
         self.name = name
         self.cost = cost
@@ -31,6 +48,10 @@ struct Subscription: Identifiable, Hashable {
         self.category = category
         self.iconName = iconName
         self.isActive = isActive
+        self.isArchived = isArchived
+        self.isTrial = isTrial
+        self.trialEndDate = trialEndDate
+        self.tags = tags
     }
     
     var formattedCost: String {
@@ -149,6 +170,10 @@ extension Subscription {
         self.category = category
         self.iconName = record["iconName"] as? String ?? "app.fill"
         self.isActive = record["isActive"] as? Bool ?? true
+        self.isArchived = record["isArchived"] as? Bool ?? false
+        self.isTrial = record["isTrial"] as? Bool ?? false
+        self.trialEndDate = record["trialEndDate"] as? Date
+        self.tags = record["tags"] as? [String] ?? []
     }
     
     func toCKRecord() -> CKRecord {
@@ -161,6 +186,10 @@ extension Subscription {
         record["category"] = category.rawValue
         record["iconName"] = iconName
         record["isActive"] = isActive
+        record["isArchived"] = isArchived
+        record["isTrial"] = isTrial
+        record["trialEndDate"] = trialEndDate
+        record["tags"] = tags
         return record
     }
 }
