@@ -104,6 +104,7 @@ struct CalendarView: View {
                 CloudKitService.shared.saveSubscription(newSubscription)
             }
         }
+        .navigationBarHidden(true)
     }
 
     // MARK: - Header
@@ -196,6 +197,13 @@ struct CalendarMonthView: View {
     let onDayTap: (Date) -> Void
     let onDayLongPress: (Date) -> Void
 
+    // Cached DateFormatter for performance
+    private static let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
+
     private var displayDays: [CalendarDay] {
         viewModel.getDaysForMonth(offset: monthOffset)
     }
@@ -241,11 +249,9 @@ struct CalendarMonthView: View {
     private var monthLabel: some View {
         let calendar = Calendar.current
         let targetDate = calendar.date(byAdding: .month, value: monthOffset, to: viewModel.currentDate) ?? viewModel.currentDate
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
 
         return HStack {
-            Text(formatter.string(from: targetDate))
+            Text(Self.monthYearFormatter.string(from: targetDate))
                 .font(DesignSystem.Typography.title3)
                 .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
                 .padding(.horizontal, DesignSystem.Spacing.lg)
@@ -263,6 +269,22 @@ struct CalendarDayView: View {
     let onLongPress: (Date) -> Void
 
     @State private var isPressed = false
+
+    private var accessibilityLabel: String {
+        guard let date = day.date, let dayNumber = day.day else {
+            return "Empty"
+        }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .full
+        var label = formatter.string(from: date)
+        if day.isToday {
+            label = "Today, \(label)"
+        }
+        if !day.subscriptions.isEmpty {
+            label += ", \(day.subscriptions.count) subscription\(day.subscriptions.count > 1 ? "s" : "")"
+        }
+        return label
+    }
 
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.xs) {
@@ -312,6 +334,10 @@ struct CalendarDayView: View {
                 onLongPress(date)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(day.date != nil && !isPreview ? "Double tap to view details. Long press to add subscription." : "")
+        .accessibilityAddTraits(day.isToday ? .isSelected : [])
     }
 
     // MARK: - Text Color

@@ -12,11 +12,14 @@ import CloudKit
 struct SubTrackrApp: App {
     @AppStorage("isFirstLaunch") private var isFirstLaunch = true
     @State private var showSplashScreen = true
-    
+
+    // Shared ViewModel for entire app
+    @StateObject private var subscriptionViewModel = SubscriptionViewModel()
+
     init() {
         // Initialize CloudKit service
         _ = CloudKitService.shared
-        
+
         // Configure appearance
         setupAppearance()
     }
@@ -36,6 +39,7 @@ struct SubTrackrApp: App {
                     ContentView()
                 }
             }
+            .environmentObject(subscriptionViewModel)
             .preferredColorScheme(.none)
         }
     }

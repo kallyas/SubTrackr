@@ -8,10 +8,22 @@ class CalendarViewModel: ObservableObject {
     @Published var subscriptionsForSelectedDay: [Subscription] = []
     @Published var showingDayDetails = false
     @Published var monthlyTotal: Double = 0
-    
+
     private let cloudKitService = CloudKitService.shared
     private let currencyManager = CurrencyManager.shared
     private var cancellables = Set<AnyCancellable>()
+
+    // MARK: - Cached DateFormatters (performance optimization)
+    private static let monthYearFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter
+    }()
+
+    private static let calendar: Calendar = {
+        var calendar = Calendar.current
+        return calendar
+    }()
     
     init() {
         // Initialize with current data
@@ -42,9 +54,7 @@ class CalendarViewModel: ObservableObject {
     }
     
     var monthName: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM yyyy"
-        return formatter.string(from: currentDate)
+        Self.monthYearFormatter.string(from: currentDate)
     }
     
     var daysInMonth: [Date] {
