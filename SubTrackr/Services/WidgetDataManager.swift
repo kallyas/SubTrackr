@@ -22,12 +22,16 @@ class WidgetDataManager {
     }
     
     func saveWidgetData(subscriptions: [Subscription], monthlyTotal: Double, userCurrencyCode: String) {
-        let widgetSubscriptions = subscriptions.map { sub in
-            WidgetSubscription(
+        let currencyManager = CurrencyManager.shared
+        
+        // Convert all subscription costs to user's preferred currency
+        let widgetSubscriptions = subscriptions.map { sub -> WidgetSubscription in
+            let convertedCost = currencyManager.convertToUserCurrency(sub.cost, from: sub.currency)
+            return WidgetSubscription(
                 id: sub.id,
                 name: sub.name,
-                cost: sub.cost,
-                currencyCode: sub.currency.code,
+                cost: convertedCost,
+                currencyCode: userCurrencyCode,
                 billingCycle: sub.billingCycle.rawValue,
                 nextBillingDate: sub.nextBillingDate,
                 category: sub.category.rawValue,
@@ -36,6 +40,7 @@ class WidgetDataManager {
             )
         }
 
+        // Convert monthly total to user's preferred currency (already calculated, but ensure consistency)
         let widgetData = WidgetData(
             subscriptions: widgetSubscriptions,
             monthlyTotal: monthlyTotal,
