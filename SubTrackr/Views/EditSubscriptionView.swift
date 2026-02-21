@@ -16,6 +16,9 @@ struct EditSubscriptionView: View {
     @State private var iconName = "app.fill"
     @State private var isActive = true
     
+    @State private var isTrial = false
+    @State private var trialEndDate = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
+
     @State private var showingIconPicker = false
     @State private var showingTemplatePicker = false
     
@@ -36,9 +39,10 @@ struct EditSubscriptionView: View {
             Form {
                 basicInfoSection
                 billingSection
+                trialSection
                 categorySection
                 iconSection
-                
+
                 if isEditing {
                     statusSection
                 }
@@ -128,12 +132,47 @@ struct EditSubscriptionView: View {
                     Text(cycle.rawValue).tag(cycle)
                 }
             }
-            
+
             DatePicker(
                 "Start Date",
                 selection: $startDate,
                 displayedComponents: [.date]
             )
+        }
+    }
+
+    private var trialSection: some View {
+        Section {
+            Toggle(isOn: $isTrial) {
+                HStack(spacing: 10) {
+                    Image(systemName: "gift.fill")
+                        .foregroundStyle(.orange)
+                    Text("Free Trial")
+                }
+            }
+
+            if isTrial {
+                DatePicker(
+                    "Trial Ends",
+                    selection: $trialEndDate,
+                    in: Date()...,
+                    displayedComponents: [.date]
+                )
+
+                HStack {
+                    Image(systemName: "bell.badge.fill")
+                        .foregroundStyle(.blue)
+                    Text("Reminder 3 days before")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Trial")
+        } footer: {
+            if isTrial {
+                Text("You'll receive notifications before your trial expires to avoid unexpected charges.")
+            }
         }
     }
     
@@ -183,12 +222,12 @@ struct EditSubscriptionView: View {
     }
     
     private func loadSubscriptionData() {
-        guard let subscription = subscription else { 
+        guard let subscription = subscription else {
             // For new subscriptions, use user's current currency
             selectedCurrency = currencyManager.selectedCurrency
-            return 
+            return
         }
-        
+
         name = subscription.name
         cost = String(subscription.cost)
         selectedCurrency = subscription.currency
@@ -197,11 +236,15 @@ struct EditSubscriptionView: View {
         category = subscription.category
         iconName = subscription.iconName
         isActive = subscription.isActive
+        isTrial = subscription.isTrial
+        if let endDate = subscription.trialEndDate {
+            trialEndDate = endDate
+        }
     }
     
     private func saveSubscription() {
         guard let costValue = Double(cost) else { return }
-        
+
         let subscriptionToSave = Subscription(
             id: subscription?.id ?? UUID().uuidString,
             name: name,
@@ -211,9 +254,23 @@ struct EditSubscriptionView: View {
             startDate: startDate,
             category: category,
             iconName: iconName,
-            isActive: isActive
+            isActive: isActive,
+            isArchived: subscription?.isArchived ?? false,
+            isTrial: isTrial,
+            trialEndDate: isTrial ? trialEndDate : nil,
+            tags: subscription?.tags ?? []
         )
-        
+
+        // Schedule trial notification if this is a trial
+        if isTrial {
+            Task {
+                await NotificationManager.shared.scheduleFreeTrialReminder(
+                    for: subscriptionToSave,
+                    expirationDate: trialEndDate
+                )
+            }
+        }
+
         onSave(subscriptionToSave)
         dismiss()
     }

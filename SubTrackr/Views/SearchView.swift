@@ -514,6 +514,15 @@ struct SearchResultRow: View {
         "Double tap to edit. Swipe left to delete, swipe right to edit."
     }
 
+    private func trialEndText(days: Int) -> String {
+        switch days {
+        case ..<0: return "Trial expired"
+        case 0: return "Trial ends today"
+        case 1: return "Trial ends tomorrow"
+        default: return "Trial: \(days) days left"
+        }
+    }
+
     var body: some View {
         Button {
             onTap(subscription)
@@ -534,12 +543,18 @@ struct SearchResultRow: View {
 
                 // Subscription details
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                    HighlightedText(
-                        subscription.name,
-                        searchText: searchText,
-                        font: DesignSystem.Typography.callout.weight(.semibold),
-                        foregroundColor: DesignSystem.Colors.label
-                    )
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        HighlightedText(
+                            subscription.name,
+                            searchText: searchText,
+                            font: DesignSystem.Typography.callout.weight(.semibold),
+                            foregroundColor: DesignSystem.Colors.label
+                        )
+
+                        if subscription.isTrial {
+                            TrialBadge(subscription: subscription)
+                        }
+                    }
 
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         HighlightedText(
@@ -553,9 +568,15 @@ struct SearchResultRow: View {
                             .fill(DesignSystem.Colors.quaternaryLabel)
                             .frame(width: 3, height: 3)
 
-                        Text("Next: \(subscription.nextBillingDate, style: .date)")
-                            .font(DesignSystem.Typography.caption1)
-                            .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                        if subscription.isTrial, let days = subscription.daysUntilTrialEnds {
+                            Text(trialEndText(days: days))
+                                .font(DesignSystem.Typography.caption1)
+                                .foregroundStyle(subscription.isTrialExpiringSoon ? DesignSystem.Colors.error : DesignSystem.Colors.warning)
+                        } else {
+                            Text("Next: \(subscription.nextBillingDate, style: .date)")
+                                .font(DesignSystem.Typography.caption1)
+                                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                        }
                     }
                 }
 
@@ -584,6 +605,29 @@ struct SearchResultRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(accessibilityHint)
+    }
+}
+
+// MARK: - Trial Badge
+
+struct TrialBadge: View {
+    let subscription: Subscription
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: subscription.isTrialExpiringSoon ? "exclamationmark.triangle.fill" : "gift.fill")
+                .font(.system(size: 8, weight: .bold))
+
+            Text("TRIAL")
+                .font(.system(size: 8, weight: .bold))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(subscription.isTrialExpiringSoon ? DesignSystem.Colors.error : .orange)
+        )
     }
 }
 
