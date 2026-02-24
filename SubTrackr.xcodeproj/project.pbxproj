@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		A11C9CEF2EF98750001775C4 /* WidgetShared in Frameworks */ = {isa = PBXBuildFile; productRef = A11C9CEE2EF98750001775C4 /* WidgetShared */; };
 		A11C9CF12EF98797001775C4 /* WidgetShared in Frameworks */ = {isa = PBXBuildFile; productRef = A11C9CF02EF98797001775C4 /* WidgetShared */; };
+		A11C9CF32EF98900001775C4 /* WidgetShared in Frameworks */ = {isa = PBXBuildFile; productRef = A11C9CF22EF98900001775C4 /* WidgetShared */; };
 		A1C6DEEF2E33EA4D00E81A9E /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C6DEEE2E33EA4D00E81A9E /* WidgetKit.framework */; };
 		A1C6DEF12E33EA4D00E81A9E /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1C6DEF02E33EA4D00E81A9E /* SwiftUI.framework */; };
 		A1C6DF022E33EA4F00E81A9E /* SubTrackrWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1C6DEEC2E33EA4D00E81A9E /* SubTrackrWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -121,6 +122,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A11C9CF32EF98900001775C4 /* WidgetShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,6 +225,7 @@
 			);
 			name = SubTrackrTests;
 			packageProductDependencies = (
+				A11C9CF22EF98900001775C4 /* WidgetShared */,
 			);
 			productName = SubTrackrTests;
 			productReference = A1466BD22E339FFA002FAA07 /* SubTrackrTests.xctest */;
