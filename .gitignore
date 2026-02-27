@@ -2,10 +2,11 @@ firebase-debug.log
 Shared/.build/
 *.log
 
-# Xcode
-*.xcodeproj/
-*.xcworkspace/
+# Xcode user-specific files (keep project files, exclude user data)
 xcuserdata/
 DerivedData/
 *.xcscmblueprint
 *.xccheckout
+
+# Xcode shared data (optional, but usually committed)
+# *.xcshareddata/
