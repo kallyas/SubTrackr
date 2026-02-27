@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedTab = 0
     @ObservedObject private var permissionsManager = PermissionsManager.shared
+    @StateObject private var viewModel = SubscriptionViewModel()
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -34,12 +35,19 @@ struct ContentView: View {
                 }
                 .tag(2)
             
+            ShareSubscriptionView(viewModel: viewModel)
+                .tabItem {
+                    Image(systemName: "person.2.fill")
+                    Text("Share")
+                }
+                .tag(3)
+            
             SettingsView()
                 .tabItem {
                     Image(systemName: "gear")
                     Text("Settings")
                 }
-                .tag(3)
+                .tag(4)
         }
         .tint(.blue)
         .onAppear {

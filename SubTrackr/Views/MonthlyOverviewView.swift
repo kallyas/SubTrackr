@@ -8,7 +8,7 @@ struct MonthlyOverviewView: View {
     @State private var subscriptionToDelete: Subscription?
     @State private var showingDeleteConfirmation = false
     @State private var subscriptionToEdit: Subscription?
-
+    
     var body: some View {
         NavigationStack {
             ScrollView {
