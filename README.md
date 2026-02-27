@@ -12,6 +12,20 @@ A native iOS app to track and manage your subscriptions.
 - **iOS Widgets** - Track spending from your home screen
 - **CloudKit Sync** - Automatic sync across your Apple devices
 
+## Demo
+
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.41.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.20.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.13.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.05.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.11.16.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.10.02.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.35.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.20.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.15.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.11.png" width="200">
+<img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.06.png" width="200">
+
 ## Requirements
 
 - iOS 15.0+
