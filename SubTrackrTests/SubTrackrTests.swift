@@ -211,35 +211,56 @@ class SubscriptionViewModelTests: XCTestCase {
     }
 
     func testMonthlyTotal() {
-        let subscription1 = Subscription(name: "Netflix", cost: 15.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription2 = Subscription(name: "Hulu", cost: 10.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        // Use explicit USD currency to avoid exchange rate conversion issues
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
         viewModel.subscriptions = [subscription1, subscription2]
-        XCTAssertEqual(viewModel.monthlyTotal, 25.0, "Monthly total should be the sum of all monthly subscription costs.")
+
+        // monthlyTotal converts to user currency, so we compare the converted amounts
+        let currencyManager = CurrencyManager.shared
+        let expected = currencyManager.convertToUserCurrency(15.0, from: .USD) + currencyManager.convertToUserCurrency(10.0, from: .USD)
+        XCTAssertEqual(viewModel.monthlyTotal, expected, accuracy: 0.01, "Monthly total should be the sum of all monthly subscription costs converted to user currency.")
     }
 
     func testCategoryTotals() {
-        let subscription1 = Subscription(name: "Netflix", cost: 15.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription2 = Subscription(name: "Hulu", cost: 10.0, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription3 = Subscription(name: "Gym", cost: 30.0, billingCycle: .monthly, startDate: Date(), category: .fitness)
+        // Use explicit USD currency to avoid exchange rate conversion issues
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription3 = Subscription(name: "Gym", cost: 30.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .fitness)
         viewModel.subscriptions = [subscription1, subscription2, subscription3]
         let categoryTotals = viewModel.categoryTotals
-        XCTAssertEqual(categoryTotals[.streaming], 25.0, "Streaming category total should be correct.")
-        XCTAssertEqual(categoryTotals[.fitness], 30.0, "Fitness category total should be correct.")
+
+        // categoryTotals converts to user currency
+        let currencyManager = CurrencyManager.shared
+        let expectedStreaming = currencyManager.convertToUserCurrency(25.0, from: .USD)
+        let expectedFitness = currencyManager.convertToUserCurrency(30.0, from: .USD)
+        XCTAssertEqual(categoryTotals[.streaming] ?? 0, expectedStreaming, accuracy: 0.01, "Streaming category total should be correct.")
+        XCTAssertEqual(categoryTotals[.fitness] ?? 0, expectedFitness, accuracy: 0.01, "Fitness category total should be correct.")
     }
 
     func testUpcomingRenewals() {
+        let calendar = Calendar.current
         let today = Date()
-        let upcomingDate = Calendar.current.date(byAdding: .day, value: 3, to: today)!
-        let farFutureDate = Calendar.current.date(byAdding: .day, value: 10, to: today)!
-        
-        let upcomingSubscription = Subscription(name: "Upcoming", cost: 10.0, billingCycle: .monthly, startDate: upcomingDate, category: .other)
-        let farFutureSubscription = Subscription(name: "Far Future", cost: 20.0, billingCycle: .monthly, startDate: farFutureDate, category: .other)
-        
+
+        // nextBillingDate = startDate + 1 month (for monthly billing)
+        // To get a nextBillingDate 3 days from now, startDate must be about 1 month ago + 3 days
+        // startDate such that startDate + 1 month = today + 3 days
+        let upcomingBillingDate = calendar.date(byAdding: .day, value: 3, to: today)!
+        let upcomingStartDate = calendar.date(byAdding: .month, value: -1, to: upcomingBillingDate)!
+
+        // For far future: nextBillingDate = today + 10 days, so startDate = today + 10 days - 1 month
+        let farFutureBillingDate = calendar.date(byAdding: .day, value: 10, to: today)!
+        let farFutureStartDate = calendar.date(byAdding: .month, value: -1, to: farFutureBillingDate)!
+
+        let upcomingSubscription = Subscription(name: "Upcoming", cost: 10.0, currency: .USD, billingCycle: .monthly, startDate: upcomingStartDate, category: .other)
+        let farFutureSubscription = Subscription(name: "Far Future", cost: 20.0, currency: .USD, billingCycle: .monthly, startDate: farFutureStartDate, category: .other)
+
         viewModel.subscriptions = [upcomingSubscription, farFutureSubscription]
-        
+
+        // getUpcomingRenewals(days: 7) returns subscriptions with nextBillingDate within 7 days
         let upcomingRenewals = viewModel.getUpcomingRenewals()
-        
-        XCTAssertEqual(upcomingRenewals.count, 1, "There should be one upcoming renewal.")
+
+        XCTAssertEqual(upcomingRenewals.count, 1, "There should be one upcoming renewal (within 7 days).")
         XCTAssertEqual(upcomingRenewals.first?.name, "Upcoming", "The upcoming renewal should be the correct one.")
     }
 }
