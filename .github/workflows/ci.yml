@@ -20,12 +20,8 @@ jobs:
 
     - name: Select Xcode version
       run: |
-        if [ -d "/Applications/Xcode_16.4.app/Contents/Developer" ]; then
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-        else
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-        fi
-      continue-on-error: true
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+        xcodebuild -version
 
     - name: Show Xcode version
       run: xcodebuild -version

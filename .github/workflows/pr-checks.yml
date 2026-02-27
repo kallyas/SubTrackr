@@ -29,9 +29,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Select Xcode version
-      run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+    - name: Select Xcode
+      run: |
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+        xcodebuild -version
       
+    - name: Show project structure
+      run: |
+        ls -la
+        
     - name: Cache DerivedData
       uses: actions/cache@v4
       with:
@@ -45,7 +51,7 @@ jobs:
         xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,name=iPhone 16' \
+          -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           -enableCodeCoverage YES \
           test
@@ -88,8 +94,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Select Xcode version
-      run: sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+    - name: Select Xcode
+      run: |
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+        xcodebuild -version
       
     - name: Cache DerivedData
       uses: actions/cache@v4
@@ -104,7 +112,7 @@ jobs:
         xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
-          -destination 'platform=iOS Simulator,name=iPhone 16' \
+          -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.5' \
           -derivedDataPath ~/Library/Developer/Xcode/DerivedData \
           test -only-testing:SubTrackrUITests
           
