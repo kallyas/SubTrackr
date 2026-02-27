@@ -1,3 +1,11 @@
 firebase-debug.log
 Shared/.build/
 *.log
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.xcscmblueprint
+*.xccheckout
