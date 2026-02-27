@@ -395,6 +395,16 @@ extension View {
             y: shadow.y
         )
     }
+    
+    /// Apply soft iOS-style shadow with custom color
+    func softShadow(color: Color, radius: CGFloat, x: CGFloat = 0, y: CGFloat = 2) -> some View {
+        return self.shadow(
+            color: color,
+            radius: radius,
+            x: x,
+            y: y
+        )
+    }
 
     /// Apply standard shadow
     func standardShadow() -> some View {
