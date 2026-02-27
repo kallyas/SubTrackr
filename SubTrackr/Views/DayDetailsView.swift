@@ -9,10 +9,23 @@ struct DayDetailsView: View {
     @StateObject private var currencyManager = CurrencyManager.shared
     @State private var showingDeleteAlert = false
     @State private var subscriptionToDelete: Subscription?
+    @State private var dragOffset: CGFloat = 0
     
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateStyle = .full
+        return formatter
+    }
+    
+    private var dayFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }
+    
+    private var shortDateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
         return formatter
     }
     
@@ -23,20 +36,56 @@ struct DayDetailsView: View {
         }
     }
     
+    private var isToday: Bool {
+        Calendar.current.isDateInToday(date)
+    }
+    
+    private var isTomorrow: Bool {
+        Calendar.current.isDateInTomorrow(date)
+    }
+    
+    private var dateTitle: String {
+        if isToday {
+            return "Today"
+        } else if isTomorrow {
+            return "Tomorrow"
+        } else {
+            return shortDateFormatter.string(from: date)
+        }
+    }
+    
     var body: some View {
-        NavigationView {
+        ZStack(alignment: .top) {
+            DesignSystem.Colors.background
+                .ignoresSafeArea()
+            
             VStack(spacing: 0) {
-                headerView
+                dragIndicator
                 
                 if subscriptions.isEmpty {
                     emptyStateView
                 } else {
                     subscriptionsList
                 }
-                
-                Spacer()
             }
-            .navigationBarHidden(true)
+            .offset(y: dragOffset)
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        if value.translation.height > 0 {
+                            dragOffset = value.translation.height
+                        }
+                    }
+                    .onEnded { value in
+                        if value.translation.height > 100 {
+                            dismiss()
+                        } else {
+                            withAnimation(.spring(response: 0.3)) {
+                                dragOffset = 0
+                            }
+                        }
+                    }
+            )
         }
         .alert("Delete Subscription", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) { }
@@ -62,82 +111,109 @@ struct DayDetailsView: View {
         }
     }
     
+    private var dragIndicator: some View {
+        RoundedRectangle(cornerRadius: 2.5)
+            .fill(DesignSystem.Colors.tertiaryLabel)
+            .frame(width: 36, height: 5)
+            .padding(.top, DesignSystem.Spacing.sm)
+            .padding(.bottom, DesignSystem.Spacing.md)
+    }
+    
     private var headerView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DesignSystem.Spacing.md) {
             HStack {
-                Button("Close") {
+                Button {
                     dismiss()
+                } label: {
+                    HStack(spacing: DesignSystem.Spacing.xs) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Close")
+                            .font(DesignSystem.Typography.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(DesignSystem.Colors.accent)
                 }
-                .foregroundColor(Color.accentColor)
                 
                 Spacer()
-                
-                Text("Day Details")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-                
-                Text("") // Placeholder for balance
-                    .foregroundColor(.clear)
-            }
-            .padding(.horizontal)
-            .padding(.top, 16)
-            
-            VStack(spacing: 4) {
-                Text(dateFormatter.string(from: date))
-                    .font(.title3)
-                    .fontWeight(.medium)
                 
                 if !subscriptions.isEmpty {
-                    Text("Total: \(currencyManager.formatAmount(totalCost))")
-                        .font(.title2)
+                    Text(currencyManager.formatAmount(totalCost))
+                        .font(DesignSystem.Typography.title3)
                         .fontWeight(.bold)
-                        .foregroundColor(Color.accentColor)
+                        .foregroundStyle(DesignSystem.Colors.accent)
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
+            
+            VStack(spacing: DesignSystem.Spacing.xxs) {
+                Text(dateTitle)
+                    .font(DesignSystem.Typography.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(DesignSystem.Colors.label)
+                
+                Text(dayFormatter.string(from: date))
+                    .font(DesignSystem.Typography.subheadline)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
         }
-        .background(Material.regularMaterial)
+        .padding(.horizontal, DesignSystem.Spacing.lg)
+        .padding(.bottom, DesignSystem.Spacing.md)
     }
     
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "calendar.badge.minus")
-                .font(.system(size: 60))
-                .foregroundColor(.secondary)
+        VStack(spacing: DesignSystem.Spacing.lg) {
+            Spacer()
             
-            Text("No Subscriptions")
-                .font(.title2)
-                .fontWeight(.medium)
+            ZStack {
+                Circle()
+                    .fill(DesignSystem.Colors.tertiaryBackground)
+                    .frame(width: 100, height: 100)
+                
+                Image(systemName: "calendar.badge.checkmark")
+                    .font(.system(size: 40, weight: .medium))
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+            }
             
-            Text("You don't have any subscriptions due on this day.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
+            VStack(spacing: DesignSystem.Spacing.xs) {
+                Text("No Subscriptions")
+                    .font(DesignSystem.Typography.title3)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(DesignSystem.Colors.label)
+                
+                Text("You don't have any subscriptions due on this day.")
+                    .font(DesignSystem.Typography.body)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    .multilineTextAlignment(.center)
+            }
+            
+            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, DesignSystem.Spacing.xl)
+        .overlay(headerView, alignment: .top)
     }
     
     private var subscriptionsList: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(subscriptions) { subscription in
-                    SubscriptionRowView(
-                        subscription: subscription,
-                        onEdit: { editedSubscription in
-                            subscriptionViewModel.updateSubscription(editedSubscription)
-                        },
-                        onDelete: { subscriptionToDelete in
-                            self.subscriptionToDelete = subscriptionToDelete
-                            showingDeleteAlert = true
-                        }
-                    )
+            VStack(spacing: 0) {
+                headerView
+                
+                LazyVStack(spacing: DesignSystem.Spacing.sm) {
+                    ForEach(subscriptions) { subscription in
+                        SubscriptionRowView(
+                            subscription: subscription,
+                            onEdit: { editedSubscription in
+                                subscriptionViewModel.updateSubscription(editedSubscription)
+                            },
+                            onDelete: { subscriptionToDelete in
+                                self.subscriptionToDelete = subscriptionToDelete
+                                showingDeleteAlert = true
+                            }
+                        )
+                    }
                 }
+                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.bottom, DesignSystem.Spacing.xxxl)
             }
-            .padding()
         }
     }
 }
@@ -151,22 +227,21 @@ struct SubscriptionRowView: View {
     @State private var showingEditSheet = false
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DesignSystem.Spacing.md) {
             subscriptionIcon
             subscriptionInfo
             Spacer()
             costInfo
             menuButton
         }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Material.regularMaterial)
-        )
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.secondaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(subscription.category.color.opacity(0.3), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .stroke(subscription.category.color.opacity(0.2), lineWidth: 1)
         )
+        .softShadow()
         .sheet(isPresented: $showingEditSheet) {
             EditSubscriptionView(subscription: subscription) { editedSubscription in
                 onEdit(editedSubscription)
@@ -177,28 +252,53 @@ struct SubscriptionRowView: View {
     private var subscriptionIcon: some View {
         ZStack {
             Circle()
-                .fill(subscription.category.color.opacity(0.2))
-                .frame(width: 44, height: 44)
+                .fill(DesignSystem.Colors.categorySubtle(subscription.category.color))
+                .frame(width: 48, height: 48)
             
             Image(systemName: subscription.iconName)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(subscription.category.color)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(subscription.category.color)
+                .symbolRenderingMode(.hierarchical)
         }
     }
     
     private var subscriptionInfo: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(subscription.name)
-                .font(.headline)
-                .foregroundColor(.primary)
+                .font(DesignSystem.Typography.callout)
+                .fontWeight(.semibold)
+                .foregroundStyle(DesignSystem.Colors.label)
+                .lineLimit(1)
             
-            Text(subscription.category.rawValue)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack(spacing: DesignSystem.Spacing.xs) {
+                Text(subscription.category.rawValue)
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                
+                Circle()
+                    .fill(DesignSystem.Colors.quaternaryLabel)
+                    .frame(width: 3, height: 3)
+                
+                Text(subscription.billingCycle.rawValue)
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
             
-            Text("Started \(subscription.startDate, style: .date)")
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            if subscription.isTrial {
+                HStack(spacing: 2) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 8, weight: .bold))
+                    Text("Trial")
+                        .font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    Capsule()
+                        .fill(.orange)
+                )
+            }
         }
     }
     
@@ -207,19 +307,16 @@ struct SubscriptionRowView: View {
             let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
             
             Text(currencyManager.formatAmount(convertedCost))
-                .font(.headline)
-                .fontWeight(.semibold)
-                .foregroundColor(.primary)
+                .font(DesignSystem.Typography.callout)
+                .fontWeight(.bold)
+                .foregroundStyle(DesignSystem.Colors.label)
+                .monospacedDigit()
             
             if subscription.currency.code != currencyManager.selectedCurrency.code {
                 Text(subscription.formattedCost)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+                    .font(DesignSystem.Typography.caption2)
+                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
             }
-            
-            Text(subscription.billingCycle.rawValue)
-                .font(.caption)
-                .foregroundColor(.secondary)
         }
     }
     
@@ -238,10 +335,11 @@ struct SubscriptionRowView: View {
             }
         } label: {
             Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(.secondary)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(Material.ultraThinMaterial))
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                .frame(width: 32, height: 32)
+                .background(DesignSystem.Colors.tertiaryBackground)
+                .clipShape(Circle())
         }
     }
 }
