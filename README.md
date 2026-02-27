@@ -22,17 +22,11 @@ A native iOS app to track and manage your subscriptions.
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.09.35.png" width="130">
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.41.png" width="130">
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.10.02.png" width="130">
-</p>
-
-<p>
-  
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.20.png" width="130">
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.13.png" width="130">
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.12.05.png" width="130">
   <img src="media/Simulator Screenshot - iPhone 16e - 2026-02-27 at 12.11.16.png" width="130">
 </p>
-
-
 
 ## Requirements
 
