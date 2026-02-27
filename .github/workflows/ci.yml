@@ -14,41 +14,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: List Xcode installations
-      run: ls -l /Applications | grep Xcode
-      continue-on-error: true
-
-    - name: Select Xcode version
+    - name: Show Xcode installations
       run: |
-        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+        ls -la /Applications/ | grep -i xcode
+        echo "---"
+        which xcodebuild
         xcodebuild -version
 
-    - name: Show Xcode version
-      run: xcodebuild -version
-
-    - name: Show available simulators
-      run: xcrun simctl list devices available
-
-    - name: Cache DerivedData
-      uses: actions/cache@v4
-      with:
-        path: "~/Library/Developer/Xcode/DerivedData"
-        key: ${{ runner.os }}-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/*.pbxproj') }}
-        restore-keys: |
-          ${{ runner.os }}-derived-data-
-
-    - name: Boot Simulator
+    - name: Show project files
       run: |
-        xcrun simctl boot "iPhone 16 Pro Max" || true
-      continue-on-error: true
+        pwd
+        ls -la
 
     - name: Build and Test
       run: |
-        xcodebuild -verbose \
+        xcodebuild \
           -project SubTrackr.xcodeproj \
           -scheme SubTrackr \
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro Max,OS=18.5' \
-          -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData" \
+          -derivedDataPath "$HOME/Library/Developer/Xcode/DerivedData-subtrackr" \
           -enableCodeCoverage YES \
           clean test
 
@@ -57,13 +41,13 @@ jobs:
       if: always()
       with:
         name: test-results
-        path: "~/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult"
+        path: "$HOME/Library/Developer/Xcode/DerivedData-subtrackr/**/Logs/Test/*.xcresult"
         retention-days: 30
 
     - name: Generate code coverage report
       if: always()
       run: |
-        XCRESULT=$(find ~/Library/Developer/Xcode/DerivedData -name "*.xcresult" -type d | head -n 1)
+        XCRESULT=$(find $HOME/Library/Developer/Xcode/DerivedData-subtrackr -name "*.xcresult" -type d | head -n 1)
         if [ -n "$XCRESULT" ]; then
           xcrun xccov view --report --json "$XCRESULT" > coverage.json
         else
