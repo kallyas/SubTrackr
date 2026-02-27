@@ -66,7 +66,7 @@ struct OnboardingView: View {
         )
         .animation(.easeInOut(duration: 0.5), value: currentPage)
         .sheet(isPresented: $showingAddSubscription) {
-            EditSubscriptionView(subscription: nil) { subscription in
+            EditSubscriptionView(subscription: nil, currentMonthlyTotal: 0) { subscription in
                 CloudKitService.shared.saveSubscription(subscription)
                 isFirstLaunch = false
             }

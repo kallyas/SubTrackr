@@ -5,6 +5,7 @@ struct TemplatePickerView: View {
     @ObservedObject private var currencyManager = CurrencyManager.shared
     @State private var searchText = ""
     @State private var selectedTemplate: SubscriptionTemplate?
+    @State private var isPresentingEditor = false
     
     private var filteredTemplates: [SubscriptionTemplate] {
         SubscriptionTemplate.search(searchText)
@@ -13,6 +14,11 @@ struct TemplatePickerView: View {
     private var groupedTemplates: [(String, [SubscriptionTemplate])] {
         let grouped = Dictionary(grouping: filteredTemplates) { $0.category.rawValue }
         return grouped.sorted { $0.key < $1.key }
+    }
+    
+    private func selectTemplate(_ template: SubscriptionTemplate) {
+        selectedTemplate = template
+        isPresentingEditor = true
     }
     
     var body: some View {
@@ -34,18 +40,21 @@ struct TemplatePickerView: View {
                     }
                 }
             }
-            .fullScreenCover(item: $selectedTemplate) { template in
-                EditSubscriptionView(subscription: nil) { subscription in
+            .fullScreenCover(isPresented: $isPresentingEditor) {
+                EditSubscriptionView(subscription: nil, currentMonthlyTotal: CloudKitService.shared.subscriptions.filter { $0.isActive && !$0.isArchived }.reduce(0) { total, sub in
+                    total + CurrencyManager.shared.convertToUserCurrency(sub.cost * sub.billingCycle.monthlyEquivalent, from: sub.currency)
+                }) { subscription in
                     CloudKitService.shared.saveSubscription(subscription)
-                    dismiss()
                 }
                 .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        NotificationCenter.default.post(
-                            name: .applyTemplate,
-                            object: nil,
-                            userInfo: ["template": template]
-                        )
+                    if let template = selectedTemplate {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            NotificationCenter.default.post(
+                                name: .applyTemplate,
+                                object: nil,
+                                userInfo: ["template": template]
+                            )
+                        }
                     }
                 }
             }
@@ -80,7 +89,7 @@ struct TemplatePickerView: View {
                         TemplateRow(template: template, currency: currencyManager.selectedCurrency)
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                selectedTemplate = template
+                                selectTemplate(template)
                             }
                     }
                 }

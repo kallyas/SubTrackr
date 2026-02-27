@@ -2,10 +2,12 @@ import SwiftUI
 
 struct EditSubscriptionView: View {
     let subscription: Subscription?
+    var currentMonthlyTotal: Double = 0
     let onSave: (Subscription) -> Void
     
     @Environment(\.dismiss) private var dismiss
     @StateObject private var currencyManager = CurrencyManager.shared
+    @StateObject private var budgetManager = BudgetManager.shared
     
     @State private var name = ""
     @State private var cost = ""
@@ -34,9 +36,67 @@ struct EditSubscriptionView: View {
         !name.isEmpty && !cost.isEmpty && Double(cost) != nil
     }
     
+    private var newSubscriptionMonthlyCost: Double {
+        guard let costValue = Double(cost), costValue > 0 else { return 0 }
+        return costValue * billingCycle.monthlyEquivalent
+    }
+    
+    private var newSubscriptionMonthlyCostInUserCurrency: Double {
+        currencyManager.convertToUserCurrency(newSubscriptionMonthlyCost, from: selectedCurrency)
+    }
+    
+    private var budgetWarning: (show: Bool, status: BudgetStatus, newTotal: Double)? {
+        guard budgetManager.budgetEnabled,
+              budgetManager.budgetInUserCurrency > 0,
+              !isEditing,
+              let costValue = Double(cost), costValue > 0 else {
+            return nil
+        }
+        
+        let newTotal = currentMonthlyTotal + newSubscriptionMonthlyCostInUserCurrency
+        let newStatus = budgetManager.checkBudgetStatus(currentSpending: newTotal)
+        
+        if newStatus == .warning || newStatus == .exceeded {
+            return (true, newStatus, newTotal)
+        }
+        return nil
+    }
+    
+    @ViewBuilder
+    private var budgetWarningView: some View {
+        if let warning = budgetWarning, warning.show {
+            Section {
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    Image(systemName: warning.status.icon)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(warning.status.color)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(warning.status == .exceeded ? "Over Budget" : "Approaching Limit")
+                            .font(DesignSystem.Typography.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(warning.status.color)
+                        
+                        let budget = budgetManager.budgetInUserCurrency
+                        let percentage = Int((warning.newTotal / budget) * 100)
+                        Text("This will bring your total to \(currencyManager.formatAmount(warning.newTotal)) (\(percentage)% of budget)")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.vertical, DesignSystem.Spacing.xs)
+            }
+            .listRowBackground(warning.status.color.opacity(0.1))
+        }
+    }
+    
     var body: some View {
         NavigationView {
             Form {
+                budgetWarningView
+                
                 basicInfoSection
                 billingSection
                 trialSection
@@ -367,5 +427,5 @@ struct IconPickerView: View {
 }
 
 #Preview {
-    EditSubscriptionView(subscription: nil) { _ in }
+    EditSubscriptionView(subscription: nil, currentMonthlyTotal: 0) { _ in }
 }

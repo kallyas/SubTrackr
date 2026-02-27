@@ -96,7 +96,7 @@ struct CalendarView: View {
             }
         }
         .sheet(isPresented: $showingAddSubscription) {
-            EditSubscriptionView(subscription: nil) { subscription in
+            EditSubscriptionView(subscription: nil, currentMonthlyTotal: viewModel.monthlyTotal) { subscription in
                 var newSubscription = subscription
                 if let selectedDate = selectedDate {
                     newSubscription.startDate = selectedDate

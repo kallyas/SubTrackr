@@ -21,7 +21,6 @@ struct MonthlyOverviewView: View {
                         }
                         monthlyTotalCard
                         spendingChart
-                        categoryBreakdown
                         upcomingRenewals
                     }
                     .padding(.vertical, DesignSystem.Spacing.lg)
@@ -48,12 +47,12 @@ struct MonthlyOverviewView: View {
             }
         }
         .sheet(isPresented: $viewModel.showingAddSubscription) {
-            EditSubscriptionView(subscription: nil) { subscription in
+            EditSubscriptionView(subscription: nil, currentMonthlyTotal: viewModel.monthlyTotal) { subscription in
                 viewModel.addSubscription(subscription)
             }
         }
         .sheet(item: $subscriptionToEdit) { subscription in
-            EditSubscriptionView(subscription: subscription) { updatedSubscription in
+            EditSubscriptionView(subscription: subscription, currentMonthlyTotal: viewModel.monthlyTotal) { updatedSubscription in
                 viewModel.updateSubscription(updatedSubscription)
             }
         }
