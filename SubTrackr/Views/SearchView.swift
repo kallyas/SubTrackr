@@ -70,7 +70,7 @@ struct SearchView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
-                            .font(.system(size: 24))
+                            .font(.system(size: 18))
                             .foregroundStyle(DesignSystem.Colors.accent)
                             .symbolRenderingMode(.hierarchical)
                     }
@@ -82,7 +82,7 @@ struct SearchView: View {
                         showingFilters = true
                     } label: {
                         Image(systemName: viewModel.selectedCategory != nil ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                            .font(.system(size: 24))
+                            .font(.system(size: 18))
                             .foregroundStyle(DesignSystem.Colors.accent)
                             .symbolRenderingMode(.hierarchical)
                     }
