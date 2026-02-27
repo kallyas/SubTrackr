@@ -172,6 +172,52 @@ class NotificationManager: ObservableObject {
 
         try? await UNUserNotificationCenter.current().add(request)
     }
+    
+    /// Schedule price increase notification
+    func schedulePriceIncreaseNotification(for subscription: Subscription, oldPrice: Double, newPrice: Double) async {
+        guard isAuthorized else { return }
+        
+        let priceIncrease = newPrice - oldPrice
+        let percentageIncrease = Int((priceIncrease / oldPrice) * 100)
+        
+        let content = UNMutableNotificationContent()
+        content.title = "📈 Price Increase Alert"
+        content.body = "\(subscription.name) price increased by \(percentageIncrease)% (\(subscription.currency.formatAmount(priceIncrease))/\(subscription.billingCycle.rawValue.lowercased()))"
+        content.sound = .default
+        content.badge = 1
+        content.categoryIdentifier = "PRICE_INCREASE"
+        content.userInfo = [
+            "subscriptionId": subscription.id,
+            "subscriptionName": subscription.name,
+            "oldPrice": oldPrice,
+            "newPrice": newPrice,
+            "priceIncrease": priceIncrease
+        ]
+        
+        // Send immediately
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let identifier = "price-increase-\(subscription.id)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+    
+    /// Check for price increases in subscriptions
+    func checkForPriceIncreases(subscriptions: [Subscription]) async {
+        guard isAuthorized else { return }
+        
+        for subscription in subscriptions where subscription.hasPriceIncreased {
+            if let latestChange = subscription.latestPriceChange,
+               let previousPrice = latestChange.previousPrice,
+               latestChange.isIncrease {
+                await schedulePriceIncreaseNotification(
+                    for: subscription,
+                    oldPrice: previousPrice,
+                    newPrice: latestChange.price
+                )
+            }
+        }
+    }
 
     // MARK: - Cancel Notifications
 

@@ -16,6 +16,8 @@ struct Subscription: Identifiable, Hashable {
     var isTrial: Bool
     var trialEndDate: Date?
     var tags: [String]
+    var priceHistory: [PriceHistoryEntry]
+    var sharedWith: [SharedMember]
     
     var nextBillingDate: Date {
         Calendar.current.date(byAdding: billingCycle.calendarComponent, value: billingCycle.value, to: startDate) ?? startDate
@@ -38,7 +40,23 @@ struct Subscription: Identifiable, Hashable {
         return days >= 0 && days <= 3
     }
     
-    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true, isArchived: Bool = false, isTrial: Bool = false, trialEndDate: Date? = nil, tags: [String] = []) {
+    var hasPriceIncreased: Bool {
+        guard priceHistory.count >= 2 else { return false }
+        let latestPrice = priceHistory.sorted { $0.date > $1.date }.first?.price ?? cost
+        let previousPrice = priceHistory.sorted { $0.date > $1.date }.dropFirst().first?.price ?? cost
+        return latestPrice > previousPrice
+    }
+    
+    var latestPriceChange: PriceHistoryEntry? {
+        priceHistory.sorted { $0.date > $1.date }.first
+    }
+    
+    var totalPriceIncrease: Double {
+        guard let firstPrice = priceHistory.sorted(by: { $0.date < $1.date }).first?.price else { return 0 }
+        return cost - firstPrice
+    }
+    
+    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true, isArchived: Bool = false, isTrial: Bool = false, trialEndDate: Date? = nil, tags: [String] = [], priceHistory: [PriceHistoryEntry] = [], sharedWith: [SharedMember] = []) {
         self.id = id
         self.name = name
         self.cost = cost
@@ -52,6 +70,8 @@ struct Subscription: Identifiable, Hashable {
         self.isTrial = isTrial
         self.trialEndDate = trialEndDate
         self.tags = tags
+        self.priceHistory = priceHistory.isEmpty ? [PriceHistoryEntry(price: cost, date: startDate)] : priceHistory
+        self.sharedWith = sharedWith
     }
     
     var formattedCost: String {
@@ -60,6 +80,12 @@ struct Subscription: Identifiable, Hashable {
     
     var monthlyCost: Double {
         return cost * billingCycle.monthlyEquivalent
+    }
+    
+    mutating func updatePrice(_ newCost: Double) {
+        let oldCost = self.cost
+        self.cost = newCost
+        priceHistory.append(PriceHistoryEntry(price: newCost, date: Date(), previousPrice: oldCost))
     }
 }
 
@@ -174,6 +200,22 @@ extension Subscription {
         self.isTrial = record["isTrial"] as? Bool ?? false
         self.trialEndDate = record["trialEndDate"] as? Date
         self.tags = record["tags"] as? [String] ?? []
+        
+        // Handle price history (stored as JSON data)
+        if let priceHistoryData = record["priceHistory"] as? Data,
+           let priceHistory = try? JSONDecoder().decode([PriceHistoryEntry].self, from: priceHistoryData) {
+            self.priceHistory = priceHistory
+        } else {
+            self.priceHistory = [PriceHistoryEntry(price: cost, date: startDate)]
+        }
+        
+        // Handle shared members (stored as JSON data)
+        if let sharedWithData = record["sharedWith"] as? Data,
+           let sharedWith = try? JSONDecoder().decode([SharedMember].self, from: sharedWithData) {
+            self.sharedWith = sharedWith
+        } else {
+            self.sharedWith = []
+        }
     }
     
     func toCKRecord() -> CKRecord {
@@ -190,6 +232,17 @@ extension Subscription {
         record["isTrial"] = isTrial
         record["trialEndDate"] = trialEndDate
         record["tags"] = tags
+        
+        // Store price history as JSON
+        if let priceHistoryData = try? JSONEncoder().encode(priceHistory) {
+            record["priceHistory"] = priceHistoryData
+        }
+        
+        // Store shared members as JSON
+        if let sharedWithData = try? JSONEncoder().encode(sharedWith) {
+            record["sharedWith"] = sharedWithData
+        }
+        
         return record
     }
 }
