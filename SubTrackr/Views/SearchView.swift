@@ -527,7 +527,7 @@ struct SearchResultRow: View {
         Button {
             onTap(subscription)
         } label: {
-            HStack(spacing: DesignSystem.Spacing.md) {
+            HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
                 // Subscription icon
                 ZStack {
                     Circle()
@@ -543,6 +543,7 @@ struct SearchResultRow: View {
 
                 // Subscription details
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                    // Name row with trial badge
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         HighlightedText(
                             subscription.name,
@@ -550,12 +551,14 @@ struct SearchResultRow: View {
                             font: DesignSystem.Typography.callout.weight(.semibold),
                             foregroundColor: DesignSystem.Colors.label
                         )
+                        .lineLimit(1)
 
                         if subscription.isTrial {
                             TrialBadge(subscription: subscription)
                         }
                     }
 
+                    // Category and billing info
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         HighlightedText(
                             subscription.category.rawValue,
@@ -572,15 +575,19 @@ struct SearchResultRow: View {
                             Text(trialEndText(days: days))
                                 .font(DesignSystem.Typography.caption1)
                                 .foregroundStyle(subscription.isTrialExpiringSoon ? DesignSystem.Colors.error : DesignSystem.Colors.warning)
+                                .lineLimit(1)
                         } else {
                             Text("Next: \(subscription.nextBillingDate, style: .date)")
                                 .font(DesignSystem.Typography.caption1)
                                 .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                                .lineLimit(1)
                         }
+                        
+                        Spacer(minLength: 0)
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: DesignSystem.Spacing.sm)
 
                 // Cost info
                 VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xxs) {
@@ -591,10 +598,13 @@ struct SearchResultRow: View {
                         .font(DesignSystem.Typography.callout)
                         .fontWeight(.bold)
                         .foregroundStyle(DesignSystem.Colors.label)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
                     Text(subscription.billingCycle.rawValue)
                         .font(DesignSystem.Typography.caption2)
                         .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+                        .lineLimit(1)
                 }
             }
             .padding(DesignSystem.Spacing.md)
