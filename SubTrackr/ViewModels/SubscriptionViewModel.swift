@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import WidgetKit
+import UserNotifications
 
 enum SortOption: String, CaseIterable {
     case nameAscending = "Name (A-Z)"
@@ -34,6 +35,7 @@ class SubscriptionViewModel: ObservableObject {
 
     private let cloudKitService = CloudKitService.shared
     private let currencyManager = CurrencyManager.shared
+    private let notificationManager = NotificationManager.shared
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -149,11 +151,19 @@ class SubscriptionViewModel: ObservableObject {
     func addSubscription(_ subscription: Subscription) {
         cloudKitService.saveSubscription(subscription)
         invalidateCache()
+        
+        Task {
+            await notificationManager.scheduleNotifications(for: subscription)
+        }
     }
 
     func updateSubscription(_ subscription: Subscription) {
         cloudKitService.updateSubscription(subscription)
         invalidateCache()
+        
+        Task {
+            await notificationManager.scheduleNotifications(for: subscription)
+        }
     }
     
     func deleteSubscription(_ subscription: Subscription, withUndo: Bool = true) {
@@ -176,6 +186,10 @@ class SubscriptionViewModel: ObservableObject {
 
         cloudKitService.deleteSubscription(subscription)
         invalidateCache()
+        
+        Task {
+            await notificationManager.cancelNotifications(for: subscription)
+        }
     }
 
     func undoDelete() {
