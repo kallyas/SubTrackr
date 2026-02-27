@@ -163,10 +163,6 @@ extension Currency {
     
     // Additional European currencies
     static let MDL = Currency(code: "MDL", name: "Moldovan Leu", symbol: "L")
-    static let EUR_AD = Currency(code: "EUR", name: "Euro (Andorra)", symbol: "€")
-    static let EUR_MC = Currency(code: "EUR", name: "Euro (Monaco)", symbol: "€")
-    static let EUR_SM = Currency(code: "EUR", name: "Euro (San Marino)", symbol: "€")
-    static let EUR_VA = Currency(code: "EUR", name: "Euro (Vatican)", symbol: "€")
     
     // Additional currencies
     static let STN = Currency(code: "STN", name: "São Tomé and Príncipe Dobra", symbol: "Db")
@@ -181,6 +177,14 @@ extension Currency {
     static let SDP = Currency(code: "SDP", name: "Sudanese Pound", symbol: "£")
     static let SVC = Currency(code: "SVC", name: "Salvadoran Colón", symbol: "₡")
     
+    // Popular currencies shown at the top for quick access
+    static let popularCurrencies: [Currency] = [
+        .USD, .EUR, .GBP, .JPY, .CAD, .AUD, .CHF, .CNY,
+        .INR, .KRW, .SGD, .HKD, .NZD, .SEK, .NOK, .DKK,
+        .BRL, .MXN, .ZAR, .TRY
+    ]
+    
+    // All supported currencies (full list - users can have subscriptions in any currency)
     static let supportedCurrencies: [Currency] = [
         // Major World Currencies
         .USD, .EUR, .GBP, .JPY, .CAD, .AUD, .CHF, .CNY,

@@ -18,6 +18,10 @@ struct CurrencyPickerView: View {
         }
     }
     
+    var popularCurrencies: [Currency] {
+        Currency.popularCurrencies
+    }
+    
     var body: some View {
         NavigationView {
             VStack {
@@ -60,15 +64,44 @@ struct CurrencyPickerView: View {
                 
                 // Currency list
                 List {
-                    ForEach(filteredCurrencies) { currency in
-                        CurrencyRow(
-                            currency: currency,
-                            isSelected: currency.code == currencyManager.selectedCurrency.code,
-                            exchangeRate: getExchangeRate(for: currency)
-                        ) {
-                            currencyManager.selectedCurrency = currency
-                            HapticManager.shared.lightImpact()
-                            dismiss()
+                    if searchText.isEmpty {
+                        Section("Popular") {
+                            ForEach(popularCurrencies) { currency in
+                                CurrencyRow(
+                                    currency: currency,
+                                    isSelected: currency.code == currencyManager.selectedCurrency.code,
+                                    exchangeRate: getExchangeRate(for: currency)
+                                ) {
+                                    currencyManager.selectedCurrency = currency
+                                    HapticManager.shared.lightImpact()
+                                    dismiss()
+                                }
+                            }
+                        }
+                        Section("All Currencies") {
+                            ForEach(filteredCurrencies.filter { !popularCurrencies.contains($0) }) { currency in
+                                CurrencyRow(
+                                    currency: currency,
+                                    isSelected: currency.code == currencyManager.selectedCurrency.code,
+                                    exchangeRate: getExchangeRate(for: currency)
+                                ) {
+                                    currencyManager.selectedCurrency = currency
+                                    HapticManager.shared.lightImpact()
+                                    dismiss()
+                                }
+                            }
+                        }
+                    } else {
+                        ForEach(filteredCurrencies) { currency in
+                            CurrencyRow(
+                                currency: currency,
+                                isSelected: currency.code == currencyManager.selectedCurrency.code,
+                                exchangeRate: getExchangeRate(for: currency)
+                            ) {
+                                currencyManager.selectedCurrency = currency
+                                HapticManager.shared.lightImpact()
+                                dismiss()
+                            }
                         }
                     }
                 }
