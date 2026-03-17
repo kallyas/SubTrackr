@@ -10,6 +10,7 @@ A native iOS app to track and manage your subscriptions.
 - **Currency Support** - 120+ currencies with automatic conversion
 - **Budget Tracking** - Set monthly limits with spending alerts
 - **iOS Widgets** - Track spending from your home screen
+- **Live Activities** - Follow upcoming renewals from the Lock Screen and Dynamic Island
 - **CloudKit Sync** - Automatic sync across your Apple devices
 
 ## Demo
@@ -34,6 +35,13 @@ A native iOS app to track and manage your subscriptions.
 - Xcode 14.0+
 - Apple Developer Account (for CloudKit)
 
+### Live Activity Support
+
+Live Activities and Dynamic Island support require:
+
+- iOS 16.1+ for Live Activities
+- iPhone 14 Pro or later for Dynamic Island presentation
+
 ## Setup
 
 1. Clone the repository
@@ -49,10 +57,15 @@ The app uses CloudKit container `iCloud.com.iden.SubTrackr`. Enable CloudKit in 
 
 Configure App Groups capability with `group.com.iden.SubTrackr` for both main app and widget targets.
 
+### Live Activities
+
+Enable Live Activities in the app target and keep the widget extension included in the build. SubTrackr uses the widget extension to render renewal status on the Lock Screen and in the Dynamic Island.
+
 ## Usage
 
 - Tap **+** to add a subscription
 - Swipe left to delete, swipe right to edit
 - Tap calendar dates to view renewals
 - Long press home screen to add widgets
+- Open a subscription row menu and choose **Start Live Activity** to pin the next renewal to the Lock Screen or Dynamic Island
 - Change currency in Settings
