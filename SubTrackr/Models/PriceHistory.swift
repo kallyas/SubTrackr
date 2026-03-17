@@ -63,6 +63,30 @@ struct SharedMember: Identifiable, Codable, Hashable {
     }
 }
 
+enum SharingBillingMode: String, Codable, CaseIterable, Identifiable {
+    case splitEqually = "Split Equally"
+    case youPay = "You Pay"
+    case otherPays = "Someone Else Pays"
+
+    var id: String { rawValue }
+
+    var iconName: String {
+        switch self {
+        case .splitEqually: return "equal.circle.fill"
+        case .youPay: return "creditcard.fill"
+        case .otherPays: return "person.crop.circle.badge.checkmark"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .splitEqually: return "Equal split"
+        case .youPay: return "You pay"
+        case .otherPays: return "Other pays"
+        }
+    }
+}
+
 enum ShareType: String, Codable, CaseIterable, Identifiable {
     case family = "Family"
     case friend = "Friend"

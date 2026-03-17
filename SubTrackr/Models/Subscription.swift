@@ -18,6 +18,7 @@ struct Subscription: Identifiable, Hashable {
     var tags: [String]
     var priceHistory: [PriceHistoryEntry]
     var sharedWith: [SharedMember]
+    var sharingBillingMode: SharingBillingMode
     
     var nextBillingDate: Date {
         Calendar.current.date(byAdding: billingCycle.calendarComponent, value: billingCycle.value, to: startDate) ?? startDate
@@ -56,7 +57,7 @@ struct Subscription: Identifiable, Hashable {
         return cost - firstPrice
     }
     
-    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true, isArchived: Bool = false, isTrial: Bool = false, trialEndDate: Date? = nil, tags: [String] = [], priceHistory: [PriceHistoryEntry] = [], sharedWith: [SharedMember] = []) {
+    init(id: String = UUID().uuidString, name: String, cost: Double, currency: Currency = CurrencyManager.shared.selectedCurrency, billingCycle: BillingCycle, startDate: Date, category: SubscriptionCategory, iconName: String = "app.fill", isActive: Bool = true, isArchived: Bool = false, isTrial: Bool = false, trialEndDate: Date? = nil, tags: [String] = [], priceHistory: [PriceHistoryEntry] = [], sharedWith: [SharedMember] = [], sharingBillingMode: SharingBillingMode = .splitEqually) {
         self.id = id
         self.name = name
         self.cost = cost
@@ -72,6 +73,7 @@ struct Subscription: Identifiable, Hashable {
         self.tags = tags
         self.priceHistory = priceHistory.isEmpty ? [PriceHistoryEntry(price: cost, date: startDate)] : priceHistory
         self.sharedWith = sharedWith
+        self.sharingBillingMode = sharingBillingMode
     }
     
     var formattedCost: String {
@@ -80,6 +82,59 @@ struct Subscription: Identifiable, Hashable {
     
     var monthlyCost: Double {
         return cost * billingCycle.monthlyEquivalent
+    }
+
+    var isSharedSubscription: Bool {
+        !sharedWith.isEmpty
+    }
+
+    var participantCount: Int {
+        sharedWith.count + 1
+    }
+
+    var otherParticipantsCount: Int {
+        sharedWith.count
+    }
+
+    var payerMember: SharedMember? {
+        sharedWith.first(where: \.isPayer)
+    }
+
+    var activeSharingBillingMode: SharingBillingMode {
+        if sharedWith.isEmpty && sharingBillingMode == .otherPays {
+            return .splitEqually
+        }
+
+        return sharingBillingMode
+    }
+
+    var yourShareCost: Double {
+        switch activeSharingBillingMode {
+        case .splitEqually:
+            return cost / Double(max(participantCount, 1))
+        case .youPay:
+            return cost
+        case .otherPays:
+            return 0
+        }
+    }
+
+    var yourMonthlyShare: Double {
+        yourShareCost * billingCycle.monthlyEquivalent
+    }
+
+    var splitSummary: String {
+        switch activeSharingBillingMode {
+        case .splitEqually:
+            return "Split across \(participantCount) people"
+        case .youPay:
+            return "You cover the full bill"
+        case .otherPays:
+            if let payerMember {
+                return "\(payerMember.name) pays the bill"
+            }
+            return "Another member pays the bill"
+        }
     }
     
     mutating func updatePrice(_ newCost: Double) {
@@ -216,6 +271,13 @@ extension Subscription {
         } else {
             self.sharedWith = []
         }
+
+        if let sharingBillingModeRaw = record["sharingBillingMode"] as? String,
+           let sharingBillingMode = SharingBillingMode(rawValue: sharingBillingModeRaw) {
+            self.sharingBillingMode = sharingBillingMode
+        } else {
+            self.sharingBillingMode = .splitEqually
+        }
     }
     
     func toCKRecord() -> CKRecord {
@@ -242,6 +304,8 @@ extension Subscription {
         if let sharedWithData = try? JSONEncoder().encode(sharedWith) {
             record["sharedWith"] = sharedWithData
         }
+
+        record["sharingBillingMode"] = sharingBillingMode.rawValue
         
         return record
     }
