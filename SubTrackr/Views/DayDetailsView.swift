@@ -328,6 +328,14 @@ struct SubscriptionRowView: View {
                 Label("Edit", systemImage: "pencil")
             }
             
+            if #available(iOS 16.1, *) {
+                Button {
+                    LiveActivityManager.shared.startActivity(for: subscription)
+                } label: {
+                    Label("Start Live Activity", systemImage: "clock.badge.exclamationmark")
+                }
+            }
+            
             Button(role: .destructive) {
                 onDelete(subscription)
             } label: {
