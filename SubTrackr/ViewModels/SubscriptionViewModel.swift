@@ -13,7 +13,11 @@ enum SortOption: String, CaseIterable {
 }
 
 class SubscriptionViewModel: ObservableObject {
-    @Published var subscriptions: [Subscription] = []
+    @Published var subscriptions: [Subscription] = [] {
+        didSet {
+            invalidateCache()
+        }
+    }
     @Published var filteredSubscriptions: [Subscription] = []
     @Published var searchText = ""
     @Published var selectedCategory: SubscriptionCategory?

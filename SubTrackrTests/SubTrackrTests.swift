@@ -211,31 +211,37 @@ class SubscriptionViewModelTests: XCTestCase {
     }
 
     func testMonthlyTotal() {
-        // Use explicit USD currency to avoid exchange rate conversion issues
-        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        // Test that monthlyTotal correctly sums active subscriptions' monthly costs
+        // Use the user's selected currency to match the viewModel's behavior
+        let userCurrency = CurrencyManager.shared.selectedCurrency
+
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: userCurrency, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: userCurrency, billingCycle: .monthly, startDate: Date(), category: .streaming)
+
+        // Clear and set subscriptions
+        viewModel.subscriptions = []
         viewModel.subscriptions = [subscription1, subscription2]
 
-        // monthlyTotal converts to user currency, so we compare the converted amounts
-        let currencyManager = CurrencyManager.shared
-        let expected = currencyManager.convertToUserCurrency(15.0, from: .USD) + currencyManager.convertToUserCurrency(10.0, from: .USD)
-        XCTAssertEqual(viewModel.monthlyTotal, expected, accuracy: 0.01, "Monthly total should be the sum of all monthly subscription costs converted to user currency.")
+        // When subscriptions use the same currency as user currency, no conversion happens (rate = 1.0)
+        // Expected: 15.0 + 10.0 = 25.0
+        XCTAssertEqual(viewModel.monthlyTotal, 25.0, accuracy: 0.01, "Monthly total should be the sum of all monthly subscription costs.")
     }
 
     func testCategoryTotals() {
-        // Use explicit USD currency to avoid exchange rate conversion issues
-        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .streaming)
-        let subscription3 = Subscription(name: "Gym", cost: 30.0, currency: .USD, billingCycle: .monthly, startDate: Date(), category: .fitness)
+        // Use the user's selected currency to avoid conversion
+        let userCurrency = CurrencyManager.shared.selectedCurrency
+
+        let subscription1 = Subscription(name: "Netflix", cost: 15.0, currency: userCurrency, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription2 = Subscription(name: "Hulu", cost: 10.0, currency: userCurrency, billingCycle: .monthly, startDate: Date(), category: .streaming)
+        let subscription3 = Subscription(name: "Gym", cost: 30.0, currency: userCurrency, billingCycle: .monthly, startDate: Date(), category: .fitness)
+
+        viewModel.subscriptions = []
         viewModel.subscriptions = [subscription1, subscription2, subscription3]
         let categoryTotals = viewModel.categoryTotals
 
-        // categoryTotals converts to user currency
-        let currencyManager = CurrencyManager.shared
-        let expectedStreaming = currencyManager.convertToUserCurrency(25.0, from: .USD)
-        let expectedFitness = currencyManager.convertToUserCurrency(30.0, from: .USD)
-        XCTAssertEqual(categoryTotals[.streaming] ?? 0, expectedStreaming, accuracy: 0.01, "Streaming category total should be correct.")
-        XCTAssertEqual(categoryTotals[.fitness] ?? 0, expectedFitness, accuracy: 0.01, "Fitness category total should be correct.")
+        // No conversion happens when subscription currency matches user currency
+        XCTAssertEqual(categoryTotals[.streaming] ?? 0, 25.0, accuracy: 0.01, "Streaming category total should be correct.")
+        XCTAssertEqual(categoryTotals[.fitness] ?? 0, 30.0, accuracy: 0.01, "Fitness category total should be correct.")
     }
 
     func testUpcomingRenewals() {
