@@ -1,5 +1,35 @@
 import SwiftUI
 
+private enum SearchQuickFilter: String, CaseIterable, Identifiable {
+    case dueSoon
+    case trials
+    case shared
+    case annual
+    case archived
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .dueSoon: return "Due Soon"
+        case .trials: return "Trials"
+        case .shared: return "Shared"
+        case .annual: return "Annual"
+        case .archived: return "Archived"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .dueSoon: return "clock.badge"
+        case .trials: return "sparkles"
+        case .shared: return "person.2.fill"
+        case .annual: return "calendar"
+        case .archived: return "archivebox"
+        }
+    }
+}
+
 struct SearchView: View {
     @EnvironmentObject private var viewModel: SubscriptionViewModel
     @StateObject private var cloudKitService = CloudKitService.shared
@@ -7,43 +37,115 @@ struct SearchView: View {
     @State private var subscriptionToDelete: Subscription?
     @State private var showingDeleteConfirmation = false
     @State private var subscriptionToEdit: Subscription?
+    @State private var selectedQuickFilter: SearchQuickFilter?
     @FocusState private var isSearchFocused: Bool
+
+    private var hasActiveCriteria: Bool {
+        !viewModel.searchText.isEmpty || viewModel.selectedCategory != nil || selectedQuickFilter != nil
+    }
+
+    private var upcomingSubscriptions: [Subscription] {
+        viewModel.getUpcomingRenewals()
+    }
+
+    private var trialSubscriptions: [Subscription] {
+        viewModel.subscriptions
+            .filter { $0.isActive && !$0.isArchived && $0.isTrial }
+            .sorted { lhs, rhs in
+                (lhs.daysUntilTrialEnds ?? .max) < (rhs.daysUntilTrialEnds ?? .max)
+            }
+    }
+
+    private var sharedSubscriptions: [Subscription] {
+        sortedSubscriptions(
+            viewModel.subscriptions.filter { $0.isActive && !$0.isArchived && $0.isSharedSubscription }
+        )
+    }
+
+    private var annualSubscriptions: [Subscription] {
+        sortedSubscriptions(
+            viewModel.subscriptions.filter { $0.isActive && !$0.isArchived && $0.billingCycle == .annual }
+        )
+    }
+
+    private var highCostSubscriptions: [Subscription] {
+        sortedSubscriptions(
+            viewModel.subscriptions.filter { $0.isActive && !$0.isArchived }
+        ).sorted { lhs, rhs in
+            monthlyCost(lhs) > monthlyCost(rhs)
+        }
+    }
+
+    private var searchResultsSubscriptions: [Subscription] {
+        let base: [Subscription]
+
+        switch selectedQuickFilter {
+        case .archived:
+            base = filteredArchivedSubscriptions
+        case .dueSoon:
+            base = viewModel.filteredSubscriptions.filter { subscription in
+                subscription.isActive &&
+                !subscription.isArchived &&
+                subscription.nextBillingDate >= Date() &&
+                subscription.nextBillingDate <= (Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date())
+            }
+        case .trials:
+            base = viewModel.filteredSubscriptions.filter(\.isTrial)
+        case .shared:
+            base = viewModel.filteredSubscriptions.filter(\.isSharedSubscription)
+        case .annual:
+            base = viewModel.filteredSubscriptions.filter { $0.billingCycle == .annual }
+        case nil:
+            base = viewModel.filteredSubscriptions
+        }
+
+        return sortedSubscriptions(base)
+    }
+
+    private var filteredArchivedSubscriptions: [Subscription] {
+        var archived = viewModel.archivedSubscriptions
+
+        if let selectedCategory = viewModel.selectedCategory {
+            archived = archived.filter { $0.category == selectedCategory }
+        }
+
+        if !viewModel.searchText.isEmpty {
+            let query = viewModel.searchText.localizedLowercase
+            archived = archived.filter { subscription in
+                subscription.name.localizedCaseInsensitiveContains(query) ||
+                subscription.category.rawValue.localizedCaseInsensitiveContains(query) ||
+                subscription.billingCycle.rawValue.localizedCaseInsensitiveContains(query)
+            }
+        }
+
+        return archived
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: DesignSystem.Spacing.lg) {
                     searchBar
+                    quickFilterRow
 
-                    // Active filter chip
-                    if let selectedCategory = viewModel.selectedCategory {
-                        HStack {
-                            FilterChip(category: selectedCategory) {
-                                DesignSystem.Haptics.light()
-                                withAnimation(DesignSystem.Animation.springSnappy) {
-                                    viewModel.selectedCategory = nil
-                                }
-                            }
-                            Spacer()
-                        }
-                        .screenPadding()
-                        .transition(.scale.combined(with: .opacity))
+                    if hasActiveFiltersVisible {
+                        activeFiltersRow
                     }
 
-                    // Content
                     if cloudKitService.isLoading && viewModel.subscriptions.isEmpty {
                         SearchLoadingSkeleton()
-                    } else if viewModel.searchText.isEmpty && viewModel.selectedCategory == nil {
-                        emptySearchState
-                    } else if viewModel.filteredSubscriptions.isEmpty {
+                    } else if !hasActiveCriteria {
+                        discoverView
+                    } else if searchResultsSubscriptions.isEmpty {
                         noResultsState
                     } else {
                         searchResults
                     }
                 }
                 .padding(.top, DesignSystem.Spacing.md)
+                .padding(.bottom, DesignSystem.Spacing.xxxl)
             }
-            .background(DesignSystem.Colors.background)
+            .background(DesignSystem.Colors.groupedBackground)
             .refreshable {
                 CloudKitService.shared.fetchSubscriptions()
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
@@ -75,7 +177,7 @@ struct SearchView: View {
                             .symbolRenderingMode(.hierarchical)
                     }
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         DesignSystem.Haptics.light()
@@ -133,13 +235,12 @@ struct SearchView: View {
 
     private var searchBar: some View {
         HStack(spacing: DesignSystem.Spacing.sm) {
-            // Search field
             HStack(spacing: DesignSystem.Spacing.sm) {
                 Image(systemName: "magnifyingglass")
                     .font(DesignSystem.Typography.body)
                     .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
 
-                TextField("Search subscriptions", text: $viewModel.searchText)
+                TextField("Search name, category, trial, shared, annual...", text: $viewModel.searchText)
                     .font(DesignSystem.Typography.body)
                     .textFieldStyle(.plain)
                     .focused($isSearchFocused)
@@ -161,14 +262,9 @@ struct SearchView: View {
             .background(DesignSystem.Colors.tertiaryFill)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.button, style: .continuous))
 
-            // Clear filters button
-            if !viewModel.searchText.isEmpty || viewModel.selectedCategory != nil {
+            if hasActiveCriteria {
                 Button {
-                    DesignSystem.Haptics.medium()
-                    withAnimation(DesignSystem.Animation.springSnappy) {
-                        viewModel.clearFilters()
-                        isSearchFocused = false
-                    }
+                    resetSearchState()
                 } label: {
                     Text("Clear")
                         .font(DesignSystem.Typography.callout)
@@ -180,38 +276,127 @@ struct SearchView: View {
         .screenPadding()
     }
 
-    // MARK: - Empty State
-
-    private var emptySearchState: some View {
-        VStack(spacing: DesignSystem.Spacing.xxl) {
-            VStack(spacing: DesignSystem.Spacing.md) {
-                Image(systemName: "magnifyingglass.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(DesignSystem.Colors.accent)
-                    .symbolRenderingMode(.hierarchical)
-
-                VStack(spacing: DesignSystem.Spacing.xs) {
-                    Text("Search Subscriptions")
-                        .font(DesignSystem.Typography.title2)
-
-                    Text("Enter a name or browse categories below")
-                        .font(DesignSystem.Typography.callout)
-                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
-                        .multilineTextAlignment(.center)
+    private var quickFilterRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(SearchQuickFilter.allCases) { filter in
+                    QuickFilterButton(
+                        filter: filter,
+                        isSelected: selectedQuickFilter == filter
+                    ) {
+                        DesignSystem.Haptics.selection()
+                        withAnimation(DesignSystem.Animation.springSnappy) {
+                            selectedQuickFilter = selectedQuickFilter == filter ? nil : filter
+                        }
+                    }
                 }
             }
-            .padding(.top, DesignSystem.Spacing.xxxxl)
+            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+        }
+    }
 
-            // Quick category selection
+    private var hasActiveFiltersVisible: Bool {
+        viewModel.selectedCategory != nil || selectedQuickFilter != nil
+    }
+
+    private var activeFiltersRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignSystem.Spacing.sm) {
+                if let selectedCategory = viewModel.selectedCategory {
+                    FilterChip(category: selectedCategory) {
+                        DesignSystem.Haptics.light()
+                        withAnimation(DesignSystem.Animation.springSnappy) {
+                            viewModel.selectedCategory = nil
+                        }
+                    }
+                }
+
+                if let selectedQuickFilter {
+                    QuickFilterTag(filter: selectedQuickFilter) {
+                        DesignSystem.Haptics.light()
+                        withAnimation(DesignSystem.Animation.springSnappy) {
+                            self.selectedQuickFilter = nil
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+        }
+        .transition(.scale.combined(with: .opacity))
+    }
+
+    // MARK: - Discover
+
+    private var discoverView: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.xl) {
+            discoveryHero
+
+            if !upcomingSubscriptions.isEmpty {
+                SearchCollectionSection(
+                    title: "Renewing Soon",
+                    subtitle: "Subscriptions due in the next 7 days",
+                    subscriptions: Array(upcomingSubscriptions.prefix(3)),
+                    searchText: viewModel.searchText,
+                    onTap: handleSubscriptionTap,
+                    onDelete: handleDelete
+                )
+            }
+
+            if !trialSubscriptions.isEmpty {
+                SearchCollectionSection(
+                    title: "Trials To Review",
+                    subtitle: "Catch trials before they convert",
+                    subscriptions: Array(trialSubscriptions.prefix(3)),
+                    searchText: viewModel.searchText,
+                    onTap: handleSubscriptionTap,
+                    onDelete: handleDelete
+                )
+            }
+
+            if !highCostSubscriptions.isEmpty {
+                SearchCollectionSection(
+                    title: "Highest Monthly Cost",
+                    subtitle: "Your biggest recurring subscriptions",
+                    subscriptions: Array(highCostSubscriptions.prefix(3)),
+                    searchText: viewModel.searchText,
+                    onTap: handleSubscriptionTap,
+                    onDelete: handleDelete
+                )
+            }
+
             VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
                 Text("Browse by Category")
                     .font(DesignSystem.Typography.headline)
                     .foregroundStyle(DesignSystem.Colors.label)
+                    .padding(.horizontal, DesignSystem.Spacing.screenPadding)
 
                 categoryGrid
+                    .screenPadding()
             }
-            .screenPadding()
         }
+    }
+
+    private var discoveryHero: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+            Text("Find subscriptions faster")
+                .font(DesignSystem.Typography.title2)
+                .foregroundStyle(DesignSystem.Colors.label)
+
+            Text("Use quick filters for trials, renewals, shared plans, or archived subscriptions. Search also understands terms like annual, monthly, and shared.")
+                .font(DesignSystem.Typography.callout)
+                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(DesignSystem.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .fill(DesignSystem.Colors.secondaryGroupedBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
+                .strokeBorder(DesignSystem.Colors.separator.opacity(0.2), lineWidth: 0.5)
+        )
+        .screenPadding()
     }
 
     // MARK: - No Results
@@ -227,16 +412,14 @@ struct SearchView: View {
                 Text("No Results")
                     .font(DesignSystem.Typography.title2)
 
-                Text("Try adjusting your search or filters")
+                Text("Try a different keyword or clear one of your filters.")
                     .font(DesignSystem.Typography.callout)
                     .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    .multilineTextAlignment(.center)
             }
 
             Button {
-                DesignSystem.Haptics.light()
-                withAnimation(DesignSystem.Animation.springSnappy) {
-                    viewModel.clearFilters()
-                }
+                resetSearchState()
             } label: {
                 Text("Clear All")
                     .font(DesignSystem.Typography.headline)
@@ -254,48 +437,62 @@ struct SearchView: View {
     // MARK: - Search Results
 
     private var searchResults: some View {
-        LazyVStack(spacing: DesignSystem.Spacing.sm) {
-            ForEach(viewModel.filteredSubscriptions) { subscription in
-                SearchResultRow(
-                    subscription: subscription,
-                    searchText: viewModel.searchText
-                ) { selectedSubscription in
-                    DesignSystem.Haptics.selection()
-                    subscriptionToEdit = selectedSubscription
-                }
-                .contextMenu {
-                    Button {
-                        subscriptionToEdit = subscription
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
-                    }
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Results")
+                        .font(DesignSystem.Typography.title3)
+                        .foregroundStyle(DesignSystem.Colors.label)
 
-                    Button(role: .destructive) {
-                        subscriptionToDelete = subscription
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
-                    }
+                    Text("\(searchResultsSubscriptions.count) matching subscriptions")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                 }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        subscriptionToDelete = subscription
-                        showingDeleteConfirmation = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+
+                Spacer()
+            }
+            .screenPadding()
+
+            LazyVStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(searchResultsSubscriptions) { subscription in
+                    SearchResultRow(
+                        subscription: subscription,
+                        searchText: viewModel.searchText
+                    ) { selectedSubscription in
+                        handleSubscriptionTap(selectedSubscription)
                     }
-                }
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    Button {
-                        subscriptionToEdit = subscription
-                    } label: {
-                        Label("Edit", systemImage: "pencil")
+                    .contextMenu {
+                        Button {
+                            subscriptionToEdit = subscription
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive) {
+                            handleDelete(subscription)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
-                    .tint(DesignSystem.Colors.accent)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            handleDelete(subscription)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        Button {
+                            subscriptionToEdit = subscription
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+                        .tint(DesignSystem.Colors.accent)
+                    }
                 }
             }
+            .screenPadding()
         }
-        .screenPadding()
     }
 
     // MARK: - Category Grid
@@ -310,6 +507,62 @@ struct SearchView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Actions
+
+    private func resetSearchState() {
+        DesignSystem.Haptics.medium()
+        withAnimation(DesignSystem.Animation.springSnappy) {
+            viewModel.clearFilters()
+            selectedQuickFilter = nil
+            isSearchFocused = false
+        }
+    }
+
+    private func handleSubscriptionTap(_ subscription: Subscription) {
+        DesignSystem.Haptics.selection()
+        subscriptionToEdit = subscription
+    }
+
+    private func handleDelete(_ subscription: Subscription) {
+        subscriptionToDelete = subscription
+        showingDeleteConfirmation = true
+    }
+
+    private func monthlyCost(_ subscription: Subscription) -> Double {
+        let converted = CurrencyManager.shared.convertToUserCurrency(
+            subscription.cost * subscription.billingCycle.monthlyEquivalent,
+            from: subscription.currency
+        )
+        return converted
+    }
+
+    private func sortedSubscriptions(_ subscriptions: [Subscription]) -> [Subscription] {
+        let currencyManager = CurrencyManager.shared
+
+        switch viewModel.sortOption {
+        case .nameAscending:
+            return subscriptions.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .nameDescending:
+            return subscriptions.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedDescending }
+        case .priceHighToLow:
+            return subscriptions.sorted { lhs, rhs in
+                let lhsAmount = currencyManager.convertToUserCurrency(lhs.cost * lhs.billingCycle.monthlyEquivalent, from: lhs.currency)
+                let rhsAmount = currencyManager.convertToUserCurrency(rhs.cost * rhs.billingCycle.monthlyEquivalent, from: rhs.currency)
+                return lhsAmount > rhsAmount
+            }
+        case .priceLowToHigh:
+            return subscriptions.sorted { lhs, rhs in
+                let lhsAmount = currencyManager.convertToUserCurrency(lhs.cost * lhs.billingCycle.monthlyEquivalent, from: lhs.currency)
+                let rhsAmount = currencyManager.convertToUserCurrency(rhs.cost * rhs.billingCycle.monthlyEquivalent, from: rhs.currency)
+                return lhsAmount < rhsAmount
+            }
+        case .nextRenewal:
+            return subscriptions.sorted { $0.nextBillingDate < $1.nextBillingDate }
+        case .newest:
+            return subscriptions.sorted { $0.startDate > $1.startDate }
         }
     }
 }
@@ -411,6 +664,68 @@ struct FilterChip: View {
     }
 }
 
+private struct QuickFilterButton: View {
+    let filter: SearchQuickFilter
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: filter.icon)
+                    .font(.system(size: 12, weight: .semibold))
+
+                Text(filter.title)
+                    .font(DesignSystem.Typography.caption1.weight(.semibold))
+            }
+            .foregroundStyle(isSelected ? .white : DesignSystem.Colors.label)
+            .padding(.horizontal, DesignSystem.Spacing.md)
+            .padding(.vertical, DesignSystem.Spacing.sm)
+            .background(
+                Capsule()
+                    .fill(isSelected ? DesignSystem.Colors.accent : DesignSystem.Colors.secondaryGroupedBackground)
+            )
+            .overlay(
+                Capsule()
+                    .strokeBorder(isSelected ? DesignSystem.Colors.accent : DesignSystem.Colors.separator.opacity(0.2), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(InteractiveScaleButtonStyle(scale: 0.96, haptic: false))
+    }
+}
+
+private struct QuickFilterTag: View {
+    let filter: SearchQuickFilter
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: DesignSystem.Spacing.xs) {
+            Image(systemName: filter.icon)
+                .font(.system(size: 12, weight: .semibold))
+
+            Text(filter.title)
+                .font(DesignSystem.Typography.caption1)
+                .fontWeight(.semibold)
+
+            Button(action: onRemove) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+            }
+        }
+        .foregroundStyle(DesignSystem.Colors.accent)
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.xs)
+        .background(
+            Capsule()
+                .fill(DesignSystem.Colors.primarySubtle)
+        )
+        .overlay(
+            Capsule()
+                .strokeBorder(DesignSystem.Colors.accent.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+
 // MARK: - Category Card
 
 struct CategoryCard: View {
@@ -440,8 +755,12 @@ struct CategoryCard: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, DesignSystem.Spacing.md)
-            .background(DesignSystem.Colors.secondaryBackground)
+            .background(DesignSystem.Colors.secondaryGroupedBackground)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                    .strokeBorder(DesignSystem.Colors.separator.opacity(0.15), lineWidth: 0.5)
+            )
         }
         .buttonStyle(InteractiveScaleButtonStyle(scale: 0.94, haptic: false))
     }
@@ -496,6 +815,54 @@ struct CategoryFilterCard: View {
     }
 }
 
+private struct SearchCollectionSection: View {
+    let title: String
+    let subtitle: String
+    let subscriptions: [Subscription]
+    let searchText: String
+    let onTap: (Subscription) -> Void
+    let onDelete: (Subscription) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(DesignSystem.Typography.headline)
+                    .foregroundStyle(DesignSystem.Colors.label)
+
+                Text(subtitle)
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+            }
+            .padding(.horizontal, DesignSystem.Spacing.screenPadding)
+
+            LazyVStack(spacing: DesignSystem.Spacing.sm) {
+                ForEach(subscriptions) { subscription in
+                    SearchResultRow(
+                        subscription: subscription,
+                        searchText: searchText,
+                        onTap: onTap
+                    )
+                    .contextMenu {
+                        Button {
+                            onTap(subscription)
+                        } label: {
+                            Label("Edit", systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive) {
+                            onDelete(subscription)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .screenPadding()
+        }
+    }
+}
+
 // MARK: - Search Result Row
 
 struct SearchResultRow: View {
@@ -528,7 +895,6 @@ struct SearchResultRow: View {
             onTap(subscription)
         } label: {
             HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
-                // Subscription icon
                 ZStack {
                     Circle()
                         .fill(DesignSystem.Colors.categorySubtle(subscription.category.color))
@@ -541,9 +907,7 @@ struct SearchResultRow: View {
                 }
                 .accessibilityHidden(true)
 
-                // Subscription details
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
-                    // Name row with trial badge
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         HighlightedText(
                             subscription.name,
@@ -558,7 +922,6 @@ struct SearchResultRow: View {
                         }
                     }
 
-                    // Category and billing info
                     HStack(spacing: DesignSystem.Spacing.xs) {
                         HighlightedText(
                             subscription.category.rawValue,
@@ -582,14 +945,13 @@ struct SearchResultRow: View {
                                 .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                                 .lineLimit(1)
                         }
-                        
+
                         Spacer(minLength: 0)
                     }
                 }
 
                 Spacer(minLength: DesignSystem.Spacing.sm)
 
-                // Cost info
                 VStack(alignment: .trailing, spacing: DesignSystem.Spacing.xxs) {
                     let currencyManager = CurrencyManager.shared
                     let convertedCost = currencyManager.convertToUserCurrency(subscription.cost, from: subscription.currency)
@@ -608,8 +970,12 @@ struct SearchResultRow: View {
                 }
             }
             .padding(DesignSystem.Spacing.md)
-            .background(DesignSystem.Colors.secondaryBackground)
+            .background(DesignSystem.Colors.secondaryGroupedBackground)
             .clipShape(RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                    .strokeBorder(DesignSystem.Colors.separator.opacity(0.15), lineWidth: 0.5)
+            )
         }
         .buttonStyle(InteractiveScaleButtonStyle(scale: 0.97, haptic: false))
         .accessibilityElement(children: .combine)

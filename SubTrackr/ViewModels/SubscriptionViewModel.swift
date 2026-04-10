@@ -224,9 +224,43 @@ class SubscriptionViewModel: ObservableObject {
         }
         
         if !searchText.isEmpty {
+            let normalizedQuery = searchText.localizedLowercase.trimmingCharacters(in: .whitespacesAndNewlines)
+            let queryTokens = normalizedQuery.split(separator: " ").map(String.init)
+
             filtered = filtered.filter { subscription in
-                subscription.name.localizedCaseInsensitiveContains(searchText) ||
-                subscription.category.rawValue.localizedCaseInsensitiveContains(searchText)
+                let textMatches =
+                    subscription.name.localizedCaseInsensitiveContains(normalizedQuery) ||
+                    subscription.category.rawValue.localizedCaseInsensitiveContains(normalizedQuery) ||
+                    subscription.billingCycle.rawValue.localizedCaseInsensitiveContains(normalizedQuery) ||
+                    subscription.tags.contains(where: { $0.localizedCaseInsensitiveContains(normalizedQuery) })
+
+                let semanticMatches = queryTokens.allSatisfy { token in
+                    switch token {
+                    case "trial", "trials":
+                        return subscription.isTrial
+                    case "shared", "share":
+                        return subscription.isSharedSubscription
+                    case "annual", "yearly", "year":
+                        return subscription.billingCycle == .annual
+                    case "monthly", "month":
+                        return subscription.billingCycle == .monthly
+                    case "weekly", "week":
+                        return subscription.billingCycle == .weekly
+                    case "quarterly", "quarter":
+                        return subscription.billingCycle == .quarterly
+                    case "active":
+                        return subscription.isActive && !subscription.isArchived
+                    case "archived", "archive":
+                        return subscription.isArchived
+                    default:
+                        return subscription.name.localizedCaseInsensitiveContains(token) ||
+                            subscription.category.rawValue.localizedCaseInsensitiveContains(token) ||
+                            subscription.billingCycle.rawValue.localizedCaseInsensitiveContains(token) ||
+                            subscription.tags.contains(where: { $0.localizedCaseInsensitiveContains(token) })
+                    }
+                }
+
+                return textMatches || semanticMatches
             }
         }
         
