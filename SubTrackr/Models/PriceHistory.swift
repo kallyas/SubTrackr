@@ -98,7 +98,7 @@ enum ShareType: String, Codable, CaseIterable, Identifiable {
     
     var iconName: String {
         switch self {
-        case .family: return "household"
+        case .family: return "house.fill"
         case .friend: return "person.2.fill"
         case .partner: return "heart.fill"
         case .colleague: return "building.2.fill"

@@ -38,7 +38,7 @@ struct ContentView: View {
             ShareSubscriptionView(viewModel: viewModel)
                 .tabItem {
                     Image(systemName: "person.2.fill")
-                    Text("Share")
+                    Text("Split")
                 }
                 .tag(3)
             
