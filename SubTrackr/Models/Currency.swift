@@ -262,6 +262,38 @@ class CurrencyManager: ObservableObject {
         let currencyToUse = currency ?? selectedCurrency
         return currencyToUse.formatAmount(amount)
     }
+
+    func formatAbbreviatedAmount(_ amount: Double, currency: Currency? = nil) -> String {
+        let currencyToUse = currency ?? selectedCurrency
+        let absoluteAmount = abs(amount)
+        let sign = amount < 0 ? "-" : ""
+
+        let divisor: Double
+        let suffix: String
+
+        switch absoluteAmount {
+        case 1_000_000_000...:
+            divisor = 1_000_000_000
+            suffix = "B"
+        case 1_000_000...:
+            divisor = 1_000_000
+            suffix = "M"
+        case 1_000...:
+            divisor = 1_000
+            suffix = "K"
+        default:
+            return formatAmount(amount, currency: currencyToUse)
+        }
+
+        let value = absoluteAmount / divisor
+        let numberFormatter = NumberFormatter()
+        numberFormatter.numberStyle = .decimal
+        numberFormatter.minimumFractionDigits = 0
+        numberFormatter.maximumFractionDigits = value >= 10 ? 0 : 1
+
+        let formattedValue = numberFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        return "\(sign)\(currencyToUse.symbol)\(formattedValue)\(suffix)"
+    }
     
     func formatAmountInUserCurrency(_ amount: Double, originalCurrency: Currency) -> String {
         let convertedAmount = convertToUserCurrency(amount, from: originalCurrency)

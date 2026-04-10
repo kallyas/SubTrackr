@@ -15,19 +15,16 @@ struct MonthlyOverviewView: View {
                 if cloudKitService.isLoading && viewModel.subscriptions.isEmpty {
                     OverviewLoadingSkeleton()
                 } else {
-                    VStack(spacing: DesignSystem.Spacing.xl) {
-                        if budgetManager.budgetEnabled {
-                            budgetProgressCard
-                        }
-                        monthlyTotalCard
-                        spendingChart
+                    VStack(spacing: DesignSystem.Spacing.lg) {
+                        summaryCard
                         upcomingRenewals
+                        spendingChart
                     }
                     .padding(.vertical, DesignSystem.Spacing.lg)
                     .screenPadding()
                 }
             }
-            .background(DesignSystem.Colors.background)
+            .background(DesignSystem.Colors.groupedBackground)
             .refreshable {
                 await refreshData()
             }
@@ -99,186 +96,193 @@ struct MonthlyOverviewView: View {
         try? await Task.sleep(nanoseconds: 1_000_000_000)
     }
 
-    // MARK: - Budget Progress Card
+    private var filteredUpcomingRenewals: [Subscription] {
+        let renewals = viewModel.getUpcomingRenewals()
+        guard let selectedCategory else { return renewals }
+        return renewals.filter { $0.category == selectedCategory }
+    }
 
-    private var budgetProgressCard: some View {
+    private var topCategoryItem: (category: SubscriptionCategory, amount: Double, percentage: Double)? {
+        viewModel.chartData.first
+    }
+
+    private var summaryInsight: String {
+        if let selectedCategory {
+            let renewalsCount = filteredUpcomingRenewals.count
+            let renewalLabel = renewalsCount == 1 ? "renewal" : "renewals"
+            return "\(selectedCategory.rawValue) selected • \(renewalsCount) \(renewalLabel) in the next week"
+        }
+
+        if let topCategoryItem {
+            return "Top spend: \(topCategoryItem.category.rawValue) at \(CurrencyManager.shared.formatAmount(topCategoryItem.amount))/month"
+        }
+
+        return "\(viewModel.activeSubscriptionsCount) active subscriptions tracked"
+    }
+
+    private var budgetStatus: (status: BudgetStatus?, progress: Double, remaining: Double, percentUsed: Int)? {
+        guard budgetManager.budgetEnabled else { return nil }
+
         let budgetConverted = budgetManager.budgetInUserCurrency
-        let status = budgetManager.checkBudgetStatus(currentSpending: viewModel.monthlyTotal)
         let progress = budgetConverted > 0 ? min(viewModel.monthlyTotal / budgetConverted, 1.5) : 0
         let remaining = budgetConverted - viewModel.monthlyTotal
         let percentUsed = budgetConverted > 0 ? Int((viewModel.monthlyTotal / budgetConverted) * 100) : 0
+        return (
+            status: budgetManager.checkBudgetStatus(currentSpending: viewModel.monthlyTotal),
+            progress: progress,
+            remaining: remaining,
+            percentUsed: percentUsed
+        )
+    }
 
-        return VStack(spacing: DesignSystem.Spacing.md) {
-            // Header row: Status icon + "Budget" on left, status badge on right
+    // MARK: - Summary Card
+
+    private var summaryCard: some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
             HStack {
-                HStack(spacing: DesignSystem.Spacing.xs) {
-                    Image(systemName: "target")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(status.color)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("This Month")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
 
-                    Text("Budget")
-                        .font(DesignSystem.Typography.headline)
+                    CounterAnimation(value: viewModel.monthlyTotal)
+                        .font(DesignSystem.Typography.displayMedium)
                         .foregroundStyle(DesignSystem.Colors.label)
                 }
 
                 Spacer()
 
-                // Status pill
-                HStack(spacing: 4) {
-                    Image(systemName: status.icon)
-                        .font(.system(size: 10, weight: .bold))
-                    Text(status.message)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(status.color))
-            }
-
-            // Amount display: "spent / budget" centered, scalable
-            HStack(spacing: 4) {
-                Text(CurrencyManager.shared.formatAmount(viewModel.monthlyTotal))
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(status.color)
-
-                Text("/")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
-
-                Text(CurrencyManager.shared.formatAmount(budgetConverted))
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
-            }
-            .minimumScaleFactor(0.6)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity)
-
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(DesignSystem.Colors.tertiaryFill)
-
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(status.color)
-                        .frame(width: geometry.size.width * min(progress, 1.0))
+                if let budgetStatus, let status = budgetStatus.status {
+                    summaryPill(
+                        title: status.message,
+                        icon: status.icon,
+                        tint: status.color
+                    )
                 }
             }
-            .frame(height: 10)
 
-            // Bottom row: percentage and remaining, compact
-            HStack {
-                Text("\(percentUsed)%")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(status.color)
+            Text(summaryInsight)
+                .font(DesignSystem.Typography.subheadline)
+                .foregroundStyle(DesignSystem.Colors.secondaryLabel)
 
-                Text("used")
-                    .font(DesignSystem.Typography.caption1)
-                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+            HStack(spacing: DesignSystem.Spacing.md) {
+                compactMetric(
+                    title: "Active",
+                    value: "\(viewModel.activeSubscriptionsCount)",
+                    icon: "checkmark.circle.fill",
+                    tint: DesignSystem.Colors.success
+                )
 
-                Spacer()
+                compactMetric(
+                    title: "Annual",
+                    value: CurrencyManager.shared.formatAbbreviatedAmount(viewModel.annualTotal),
+                    icon: "calendar.badge.clock",
+                    tint: DesignSystem.Colors.accent
+                )
+            }
 
-                if remaining >= 0 {
-                    Text("\(CurrencyManager.shared.formatAmount(remaining)) left")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(DesignSystem.Colors.success)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                } else {
-                    Text("\(CurrencyManager.shared.formatAmount(abs(remaining))) over")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(DesignSystem.Colors.error)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
+            if let budgetStatus, let status = budgetStatus.status {
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+                    HStack {
+                        Label("Budget", systemImage: "target")
+                            .font(DesignSystem.Typography.subheadlineEmphasized)
+                            .foregroundStyle(DesignSystem.Colors.label)
+
+                        Spacer()
+
+                        Text(budgetStatus.remaining >= 0 ? "\(CurrencyManager.shared.formatAmount(budgetStatus.remaining)) left" : "\(CurrencyManager.shared.formatAmount(abs(budgetStatus.remaining))) over")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(budgetStatus.remaining >= 0 ? DesignSystem.Colors.success : DesignSystem.Colors.error)
+                    }
+
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(DesignSystem.Colors.tertiaryFill)
+
+                            Capsule()
+                                .fill(status.color)
+                                .frame(width: geometry.size.width * min(budgetStatus.progress, 1.0))
+                        }
+                    }
+                    .frame(height: 8)
+
+                    Text("\(budgetStatus.percentUsed)% used of \(CurrencyManager.shared.formatAmount(budgetManager.budgetInUserCurrency))")
+                        .font(DesignSystem.Typography.caption1)
+                        .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                 }
             }
         }
         .padding(DesignSystem.Spacing.lg)
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .fill(DesignSystem.Colors.secondaryBackground)
+                .fill(DesignSystem.Colors.secondaryGroupedBackground)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .strokeBorder(status.color.opacity(0.2), lineWidth: 1)
+                .strokeBorder(DesignSystem.Colors.separator.opacity(0.25), lineWidth: 0.5)
         )
     }
 
-    // MARK: - Monthly Total Card
+    private func compactMetric(title: String, value: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 28, height: 28)
+                .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-    private var monthlyTotalCard: some View {
-        VStack(spacing: DesignSystem.Spacing.md) {
-            // Large total amount
-            VStack(spacing: DesignSystem.Spacing.xs) {
-                CounterAnimation(value: viewModel.monthlyTotal)
-                    .font(DesignSystem.Typography.displayLarge)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(DesignSystem.Typography.subheadlineEmphasized)
                     .foregroundStyle(DesignSystem.Colors.label)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-                Text("per month")
-                    .font(DesignSystem.Typography.subheadline)
-                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
-            }
-
-            // Active subscriptions count
-            HStack(spacing: DesignSystem.Spacing.xs) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundStyle(DesignSystem.Colors.success)
-
-                Text("\(viewModel.subscriptions.filter { $0.isActive && !$0.isArchived }.count) active")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
-            }
-            
-            // Annual projection
-            Divider()
-                .padding(.vertical, DesignSystem.Spacing.sm)
-            
-            HStack(spacing: DesignSystem.Spacing.xs) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundStyle(DesignSystem.Colors.accent)
-
-                Text("Annual: ")
-                    .font(DesignSystem.Typography.callout)
-                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
-                
-                Text(CurrencyManager.shared.formatAmount(viewModel.annualTotal))
-                    .font(DesignSystem.Typography.callout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(DesignSystem.Colors.label)
-                
-                Text("per year")
+                Text(title)
                     .font(DesignSystem.Typography.caption1)
-                    .foregroundStyle(DesignSystem.Colors.tertiaryLabel)
+                    .foregroundStyle(DesignSystem.Colors.secondaryLabel)
             }
+
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(DesignSystem.Spacing.xxl)
+        .padding(.horizontal, DesignSystem.Spacing.md)
+        .padding(.vertical, DesignSystem.Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .fill(DesignSystem.Colors.secondaryBackground)
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                .fill(DesignSystem.Colors.tertiaryBackground)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .strokeBorder(DesignSystem.Colors.separator.opacity(0.5), lineWidth: 0.5)
-        )
-        .softShadow()
+    }
+
+    private func summaryPill(title: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .bold))
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(tint.opacity(0.12), in: Capsule())
     }
 
     // MARK: - Spending Chart
 
     private var spendingChart: some View {
-        VStack(alignment: .leading, spacing: DesignSystem.Spacing.lg) {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
                     Text("Spending by Category")
                         .font(DesignSystem.Typography.title3)
 
-                    if !viewModel.chartData.isEmpty {
-                        Text("\(viewModel.chartData.count) categories")
+                    if let selectedCategory {
+                        Text("Showing \(selectedCategory.rawValue.lowercased()) impact across monthly spend")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    } else if let topCategoryItem {
+                        Text("\(topCategoryItem.category.rawValue) leads at \(topCategoryItem.percentage, specifier: "%.0f")%")
                             .font(DesignSystem.Typography.caption1)
                             .foregroundStyle(DesignSystem.Colors.secondaryLabel)
                     }
@@ -315,15 +319,26 @@ struct MonthlyOverviewView: View {
                         }
                     }
                 }
-                .padding(.horizontal, DesignSystem.Spacing.lg)
+                .padding(.horizontal, DesignSystem.Spacing.md)
+
+                if selectedCategory != nil {
+                    Button("Clear category filter") {
+                        withAnimation(DesignSystem.Animation.springSnappy) {
+                            selectedCategory = nil
+                        }
+                    }
+                    .font(DesignSystem.Typography.caption1)
+                    .foregroundStyle(DesignSystem.Colors.accent)
+                    .padding(.horizontal, DesignSystem.Spacing.lg)
+                    .padding(.bottom, DesignSystem.Spacing.sm)
+                }
             }
         }
         .padding(.bottom, DesignSystem.Spacing.lg)
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .fill(DesignSystem.Colors.secondaryBackground)
+                .fill(DesignSystem.Colors.secondaryGroupedBackground)
         )
-        .softShadow()
     }
 
     // MARK: - Category Breakdown
@@ -378,22 +393,28 @@ struct MonthlyOverviewView: View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
             // Header
             HStack {
-                Text("Upcoming Renewals")
-                    .font(DesignSystem.Typography.title3)
+                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xxs) {
+                    Text("Upcoming Renewals")
+                        .font(DesignSystem.Typography.title3)
+
+                    if let selectedCategory {
+                        Text("\(selectedCategory.rawValue) only")
+                            .font(DesignSystem.Typography.caption1)
+                            .foregroundStyle(DesignSystem.Colors.secondaryLabel)
+                    }
+                }
 
                 Spacer()
 
-                Text("Next 7 days")
+                Text(selectedCategory == nil ? "Next 7 days" : "\(filteredUpcomingRenewals.count) found")
                     .font(DesignSystem.Typography.caption1)
                     .foregroundStyle(DesignSystem.Colors.secondaryLabel)
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.top, DesignSystem.Spacing.lg)
 
-            let upcomingSubscriptions = viewModel.getUpcomingRenewals()
-
             // Renewals list
-            if upcomingSubscriptions.isEmpty {
+            if filteredUpcomingRenewals.isEmpty {
                 EmptyStateView(
                     variant: .noUpcomingRenewals,
                     compact: true
@@ -401,7 +422,7 @@ struct MonthlyOverviewView: View {
                 .padding(DesignSystem.Spacing.xxl)
             } else {
                 VStack(spacing: DesignSystem.Spacing.xs) {
-                    ForEach(upcomingSubscriptions) { subscription in
+                    ForEach(filteredUpcomingRenewals) { subscription in
                         UpcomingRenewalRowView(subscription: subscription)
                             .contextMenu {
                                 Button {
@@ -425,9 +446,8 @@ struct MonthlyOverviewView: View {
         .padding(.bottom, DesignSystem.Spacing.lg)
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.card, style: .continuous)
-                .fill(DesignSystem.Colors.secondaryBackground)
+                .fill(DesignSystem.Colors.secondaryGroupedBackground)
         )
-        .softShadow()
     }
 }
 
@@ -498,9 +518,8 @@ struct CategoryRowView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
-                .strokeBorder(isSelected ? category.color.opacity(0.3) : Color.clear, lineWidth: 1.5)
+                .strokeBorder(isSelected ? category.color.opacity(0.25) : DesignSystem.Colors.separator.opacity(0.15), lineWidth: isSelected ? 1 : 0.5)
         )
-        .scaleEffect(isSelected ? 1.02 : 1.0)
     }
 }
 
@@ -611,6 +630,10 @@ struct UpcomingRenewalRowView: View {
         .background(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
                 .fill(DesignSystem.Colors.tertiaryBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
+                .strokeBorder(DesignSystem.Colors.separator.opacity(0.15), lineWidth: 0.5)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
@@ -778,9 +801,8 @@ struct HorizontalBarChartRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md, style: .continuous)
-                .strokeBorder(isSelected ? category.color.opacity(0.3) : Color.clear, lineWidth: 1.5)
+                .strokeBorder(isSelected ? category.color.opacity(0.25) : DesignSystem.Colors.separator.opacity(0.15), lineWidth: isSelected ? 1 : 0.5)
         )
-        .scaleEffect(isSelected ? 1.02 : 1.0)
     }
 }
 
