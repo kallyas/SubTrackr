@@ -146,9 +146,12 @@ class CalendarViewModel: ObservableObject {
             subscriptionsForSelectedDay = []
             return
         }
-        
-        let day = Calendar.current.component(.day, from: selectedDate)
-        subscriptionsForSelectedDay = getSubscriptionsForDay(day)
+
+        let calendar = Calendar.current
+        let day = calendar.component(.day, from: selectedDate)
+        let month = calendar.component(.month, from: selectedDate)
+        let year = calendar.component(.year, from: selectedDate)
+        subscriptionsForSelectedDay = cloudKitService.getSubscriptionsForDay(day, month: month, year: year)
     }
     
     private func updateMonthlyTotal() {

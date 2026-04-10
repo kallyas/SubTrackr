@@ -91,8 +91,9 @@ struct CalendarView: View {
                     date: selectedDate,
                     subscriptions: viewModel.subscriptionsForSelectedDay
                 )
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.fraction(0.52), .large])
                 .presentationDragIndicator(.visible)
+                .presentationCornerRadius(24)
             }
         }
         .sheet(isPresented: $showingAddSubscription) {
